@@ -30,7 +30,62 @@ function clearStoredToken() {
 
 let _token = getStoredToken();
 
+const isStaticDemo = import.meta.env.PROD && !API_BASE;
+
+// Delay helper to make demo look realistic
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+async function simulateBackendResponse(path, options) {
+  await delay(800 + Math.random() * 500); // 800-1300ms delay to simulate network/AI thinking
+
+  if (path.includes('/auth/login')) {
+    const body = options.body ? JSON.parse(options.body) : {};
+    return { token: 'demo-jwt-token-123', user: { email: body.email } };
+  }
+  if (path.includes('/ai/explain-match')) {
+    return { 
+      explanation: "This volunteer provides an excellent fit for this crisis due to a strong overlap in required skills and their close geographic proximity.",
+      provider: "demo-local" 
+    };
+  }
+  if (path.includes('/ai/process-report')) {
+    return {
+      pipeline: 'demo-pipeline',
+      report: { summary: "Simulated NLP extraction based on the provided text.", urgency_level: "high" },
+      priority: { score: 85, label: "Urgent" },
+      matches: []
+    };
+  }
+  if (path.includes('/ai/analyze-report')) {
+    return {
+      location: "Demo Location",
+      urgency_level: "High",
+      needs: ["Medical Support", "Evacuation"],
+      affected_people_estimate: 50,
+      summary: "This is a simulated analysis since the backend is currently running in static demo mode.",
+      confidence_score: 92,
+      _extraction_method: "demo-fallback"
+    };
+  }
+  if (path.includes('/ai/chat')) {
+    return { reply: "[Demo Mode]: I am unable to connect to the live AI engine from the static GitHub pages deployment, but I am here to help you simulate operations." };
+  }
+  if (path.includes('/health')) {
+    return { status: 'ok', mode: 'demo' };
+  }
+  
+  return { success: true, message: "Simulated response for " + path };
+}
+
 async function request(path, options = {}) {
+  // If deployed to GH Pages (PROD but no API_URL), short-circuit to prevent 405 Method Not Allowed
+  if (isStaticDemo) {
+    if (path !== '/api/health') {
+      console.log(`[Demo/Static Mode] Simulating backend API call: ${path}`);
+    }
+    return simulateBackendResponse(path, options);
+  }
+
   const headers = {
     'Content-Type': 'application/json',
     ...(_token ? { Authorization: `Bearer ${_token}` } : {}),
