@@ -1,0 +1,197 @@
+### Volunteer Matching API Test Examples
+### Run these with REST Client extension in VS Code
+
+### 1. Login (get JWT token first)
+# @name login
+POST http://localhost:8787/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 2. Match Volunteers for Single Task
+POST http://localhost:8787/api/ai/match-volunteers
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "task": {
+    "location": { "lat": 19.076, "lng": 72.877 },
+    "needs": ["medical", "emergency_response"],
+    "priority_score": 95
+  },
+  "volunteers": [
+    {
+      "name": "Dr. Priya Sharma",
+      "location": { "lat": 19.076, "lng": 72.877 },
+      "skills": ["medical", "emergency_response"],
+      "availability": true
+    },
+    {
+      "name": "Rahul Patel",
+      "location": { "lat": 19.1, "lng": 72.9 },
+      "skills": ["logistics", "transport"],
+      "availability": true
+    },
+    {
+      "name": "Anita Desai",
+      "location": { "lat": 18.9, "lng": 72.8 },
+      "skills": ["medical", "counseling"],
+      "availability": true
+    },
+    {
+      "name": "Sunita Rao",
+      "location": { "lat": 19.07, "lng": 72.87 },
+      "skills": ["medical", "food", "logistics"],
+      "availability": true
+    }
+  ],
+  "topN": 3
+}
+
+### 3. Match with String Locations
+POST http://localhost:8787/api/ai/match-volunteers
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "task": {
+    "location": "Mumbai",
+    "needs": ["food", "shelter"],
+    "priority_score": 70
+  },
+  "volunteers": [
+    {
+      "name": "Vikram Mehta",
+      "location": "Mumbai",
+      "skills": ["food", "shelter"],
+      "availability": true
+    },
+    {
+      "name": "Rahul Patel",
+      "location": "Mumbai Central",
+      "skills": ["logistics"],
+      "availability": true
+    }
+  ],
+  "topN": 3
+}
+
+### 4. Batch Match Multiple Tasks
+POST http://localhost:8787/api/ai/match-batch
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "tasks": [
+    {
+      "location": { "lat": 19.076, "lng": 72.877 },
+      "needs": ["medical", "emergency_response"],
+      "priority_score": 95
+    },
+    {
+      "location": { "lat": 19.076, "lng": 72.877 },
+      "needs": ["food", "shelter"],
+      "priority_score": 70
+    },
+    {
+      "location": { "lat": 19.5, "lng": 73.0 },
+      "needs": ["medical"],
+      "priority_score": 85
+    }
+  ],
+  "volunteers": [
+    {
+      "name": "Dr. Priya Sharma",
+      "location": { "lat": 19.076, "lng": 72.877 },
+      "skills": ["medical", "emergency_response"],
+      "availability": true
+    },
+    {
+      "name": "Rahul Patel",
+      "location": { "lat": 19.1, "lng": 72.9 },
+      "skills": ["logistics", "transport"],
+      "availability": true
+    },
+    {
+      "name": "Sunita Rao",
+      "location": { "lat": 19.07, "lng": 72.87 },
+      "skills": ["medical", "food", "logistics"],
+      "availability": true
+    }
+  ],
+  "topN": 3
+}
+
+### 5. Calculate Match Score (Single Pair)
+POST http://localhost:8787/api/ai/match-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "volunteer": {
+    "name": "Dr. Priya Sharma",
+    "location": { "lat": 19.076, "lng": 72.877 },
+    "skills": ["medical", "emergency_response"],
+    "availability": true
+  },
+  "task": {
+    "location": { "lat": 19.076, "lng": 72.877 },
+    "needs": ["medical", "emergency_response"],
+    "priority_score": 95
+  }
+}
+
+### 6. Match Score - Poor Match
+POST http://localhost:8787/api/ai/match-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "volunteer": {
+    "name": "Rahul Patel",
+    "location": { "lat": 19.1, "lng": 72.9 },
+    "skills": ["logistics", "transport"],
+    "availability": true
+  },
+  "task": {
+    "location": { "lat": 19.076, "lng": 72.877 },
+    "needs": ["medical"],
+    "priority_score": 95
+  }
+}
+
+### 7. Error Case - No Volunteers
+POST http://localhost:8787/api/ai/match-volunteers
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "task": {
+    "location": "Mumbai",
+    "needs": ["medical"],
+    "priority_score": 95
+  },
+  "volunteers": []
+}
+
+### 8. Error Case - Not Available
+POST http://localhost:8787/api/ai/match-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "volunteer": {
+    "name": "Test Volunteer",
+    "location": "Mumbai",
+    "skills": ["medical"],
+    "availability": false
+  },
+  "task": {
+    "location": "Mumbai",
+    "needs": ["medical"],
+    "priority_score": 95
+  }
+}

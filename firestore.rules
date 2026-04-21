@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny everything by default so there is no public or accidental broad access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /ngos/{ngoEmail}/{document=**} {
+      // Require a signed-in user. This blocks all unauthenticated traffic.
+      // Prevents anonymous/public users from reading or changing NGO data.
+      allow read, write: if request.auth != null
+        // Tie access to the authenticated Firebase email claim.
+        // Prevents one NGO account from accessing another NGO's documents.
+        && request.auth.token.email == ngoEmail;
+    }
+  }
+}

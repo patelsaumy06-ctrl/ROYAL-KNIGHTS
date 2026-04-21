@@ -1,0 +1,13 @@
+{
+  "location": "Rajkot",
+  "urgency_level": "high",
+  "needs": [
+    { "type": "medical", "priority": "high" },
+    { "type": "shelter", "priority": "high" },
+    { "type": "food", "priority": "medium" }
+  ],
+  "affected_people_estimate": 300,
+  "summary": "A high-severity fire in Rajkot has affected over 300 residents, creating urgent need for medical aid, emergency shelter, and food supplies.",
+  "confidence_score": 0.85,
+  "_extraction_method": "llm"
+}

@@ -1,0 +1,83 @@
+### Report Analyzer API Test Examples
+### Run these with REST Client extension in VS Code or use curl
+
+### 1. Health Check
+GET http://localhost:8787/api/health
+
+### 2. Login (get JWT token first)
+# @name login
+POST http://localhost:8787/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 3. Analyze Single Report - Flood Relief
+POST http://localhost:8787/api/ai/analyze-report
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reportText": "Field Report - Gujarat Flood Relief\nDate: 15th July 2024\nLocation: Village of Kheralu, Mehsana District\n\nSituation Overview:\nHeavy rainfall has caused severe flooding in the Kheralu area. Water levels have risen to 4-5 feet in some areas. 250 families have been displaced from their homes and are currently sheltering in the local school building. \n\nImmediate Needs:\n- Food supplies running low - only 2 days of rations remaining\n- Medical camp needed - several cases of waterborne diseases reported\n- Clean drinking water urgently required\n- Blankets and clothing for displaced families\n- Temporary shelter materials needed\n\nAffected Population:\nApproximately 1,200 people affected including 400 children. 3 injuries reported, no casualties.\n\nContact: Ramesh Patel, Local Coordinator"
+}
+
+### 4. Analyze Single Report - Short Urgent Message
+POST http://localhost:8787/api/ai/analyze-report
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reportText": "URGENT: Fire broke out in slum area near Rajkot. 50 homes destroyed. People need immediate shelter, food, and medical help for burn victims. Around 300 people affected."
+}
+
+### 5. Analyze Single Report - Force Keyword Fallback (no LLM)
+POST http://localhost:8787/api/ai/analyze-report
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reportText": "Medical camp survey in Dang district. 850 people surveyed. Primary issues: malnutrition in children, respiratory infections, lack of basic medicines at local PHC.",
+  "useLLM": false
+}
+
+### 6. Batch Analyze Multiple Reports
+POST http://localhost:8787/api/ai/analyze-reports-batch
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reports": [
+    {
+      "id": "report-001",
+      "text": "Field visit to village near Patan. People starving, no food for 3 days. Kids sick. Need doctor ASAP. 200 people living in tents. No clean water."
+    },
+    {
+      "id": "report-002", 
+      "text": "Community feedback from Gandhinagar Sector 12. Residents request park improvements - better lighting and seating. Non-urgent development request."
+    },
+    {
+      "id": "report-003",
+      "text": "Road connectivity damaged in Kutch district. 5 villages affected - Bhujodi, Dumaro. 600 people cannot access hospital or market. Need transport and communication support."
+    }
+  ]
+}
+
+### 7. Error Case - Empty Report
+POST http://localhost:8787/api/ai/analyze-report
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reportText": ""
+}
+
+### 8. Error Case - Missing Report Text
+POST http://localhost:8787/api/ai/analyze-report
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "reportText": null
+}

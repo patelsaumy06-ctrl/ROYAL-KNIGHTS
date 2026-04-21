@@ -1,0 +1,137 @@
+### Priority Scoring API Test Examples
+### Run these with REST Client extension in VS Code
+
+### 1. Login (get JWT token first)
+# @name login
+POST http://localhost:8787/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 2. Calculate Priority Score - Single Issue
+POST http://localhost:8787/api/ai/priority-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issue": {
+    "location": "Mumbai",
+    "urgency_level": "high",
+    "affected_people_estimate": 500,
+    "needs": ["medical", "shelter"],
+    "summary": "Major flood with casualties"
+  }
+}
+
+### 3. Calculate Priority Score - Medium Priority
+POST http://localhost:8787/api/ai/priority-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issue": {
+    "location": "Delhi",
+    "urgency_level": "medium",
+    "affected_people_estimate": 200,
+    "needs": ["food", "water"],
+    "summary": "Food shortage in slum area"
+  }
+}
+
+### 4. Rank Multiple Issues - Top 5
+POST http://localhost:8787/api/ai/priority-rank
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issues": [
+    {
+      "id": "1",
+      "location": "Mumbai",
+      "urgency_level": "high",
+      "affected_people_estimate": 500,
+      "needs": ["medical", "shelter"],
+      "summary": "Major flood with casualties"
+    },
+    {
+      "id": "2",
+      "location": "Delhi",
+      "urgency_level": "medium",
+      "affected_people_estimate": 200,
+      "needs": ["food", "water"],
+      "summary": "Food shortage in slum area"
+    },
+    {
+      "id": "3",
+      "location": "Chennai",
+      "urgency_level": "high",
+      "affected_people_estimate": 50,
+      "needs": ["medical"],
+      "summary": "Medical emergency - small group"
+    },
+    {
+      "id": "4",
+      "location": "Kolkata",
+      "urgency_level": "low",
+      "affected_people_estimate": 1000,
+      "needs": ["education"],
+      "summary": "School renovation needed"
+    },
+    {
+      "id": "5",
+      "location": "Pune",
+      "urgency_level": "high",
+      "affected_people_estimate": 3000,
+      "needs": ["shelter", "food", "water"],
+      "summary": "Earthquake displacement"
+    }
+  ],
+  "topN": 3,
+  "includeBreakdown": true
+}
+
+### 5. Rank Issues - Without Breakdown
+POST http://localhost:8787/api/ai/priority-rank
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issues": [
+    {
+      "id": "1",
+      "location": "Hyderabad",
+      "urgency_level": "medium",
+      "affected_people_estimate": 150,
+      "needs": ["clothing", "food"]
+    },
+    {
+      "id": "2",
+      "location": "Bangalore",
+      "urgency_level": "low",
+      "affected_people_estimate": 25,
+      "needs": ["education"]
+    }
+  ],
+  "includeBreakdown": false
+}
+
+### 6. Error Case - Missing Issue
+POST http://localhost:8787/api/ai/priority-score
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issue": null
+}
+
+### 7. Error Case - Empty Issues Array
+POST http://localhost:8787/api/ai/priority-rank
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.token}}
+
+{
+  "issues": []
+}
