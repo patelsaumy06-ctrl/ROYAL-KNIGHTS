@@ -157,7 +157,7 @@ export default function Volunteers({ initialTask, needsOverride = null, intellig
       return;
     }
     const taskWithLocation = { ...task, location: getNeedLocationPoint(task) };
-    const ranked = rankVolunteersForTask(taskWithLocation, vols);
+    const { ranked } = rankVolunteersForTask(taskWithLocation, vols);
     setSmartRank(ranked);
   }, [vols, needs, selectedNeedId]);
 
@@ -234,7 +234,7 @@ export default function Volunteers({ initialTask, needsOverride = null, intellig
     let needed = targetNeed.volunteers - targetNeed.assigned;
     if (needed <= 0) { alert("Task is already fully assigned."); return; }
     const targetNeedWithLocation = { ...targetNeed, location: getNeedLocationPoint(targetNeed) };
-    const ranked = rankVolunteersForTask(targetNeedWithLocation, vols);
+    const { ranked } = rankVolunteersForTask(targetNeedWithLocation, vols);
     const sorted = ranked.filter(v => v.available);
     const toAssign = sorted.slice(0, needed);
     if (toAssign.length === 0) { alert("No available volunteers at the moment."); return; }

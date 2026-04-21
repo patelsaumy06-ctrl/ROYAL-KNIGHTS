@@ -447,8 +447,8 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
     if (!sel) return;
     const need = needs.find((n) => n.id === sel.id);
     if (!need) return;
-    const ranked = rankVolunteersForTask(need, vols).slice(0, 3);
-    setSmartMatches(ranked);
+    const { ranked } = rankVolunteersForTask(need, vols);
+    setSmartMatches(ranked.slice(0, 3));
     setMatchExplanations({});
   };
 

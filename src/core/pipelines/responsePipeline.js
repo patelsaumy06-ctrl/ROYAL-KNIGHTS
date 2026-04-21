@@ -79,7 +79,7 @@ export function executeResponsePipeline(data, config = {}) {
 
   // Stage 3: Matching
   const matches = urgentTasks.map((task) => {
-    const ranked = rankVolunteersForTask(task, volunteers, {
+    const { ranked } = rankVolunteersForTask(task, volunteers, {
       availableOnly: true,
     });
     
