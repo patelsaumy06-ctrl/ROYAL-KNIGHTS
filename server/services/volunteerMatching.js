@@ -248,7 +248,8 @@ export function findMatchesForTask(task, volunteers, topN = 3) {
   matches.sort((a, b) => {
     const scoreDiff = b.match_score - a.match_score;
     if (scoreDiff !== 0) return scoreDiff;
-    return a.volunteer.name.localeCompare(b.volunteer.name);
+    // FIX: volunteer.name can be undefined — calling .localeCompare() on undefined throws.
+    return (a.volunteer.name || '').localeCompare(b.volunteer.name || '');
   });
 
   // Return top N matches

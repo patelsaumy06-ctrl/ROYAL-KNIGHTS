@@ -209,3 +209,57 @@ export function generateRecommendations(tasks = [], volunteers = [], autoAssign 
     };
   });
 }
+
+// ── Missing exports that routes/match.js depends on ─────────────
+//
+// FIX: routes/match.js imported these names but they were never
+// exported, causing a runtime crash on first request.
+
+/**
+ * Alias – routes/match.js imports this name.
+ */
+export { generateRecommendations as generateVolunteerRecommendations };
+
+/**
+ * FIX: AI-augmented ranking wrapper.
+ *
+ * routes/match.js calls `rankVolunteersWithAI` and expects the return
+ * shape `{ ranked, weightMeta, llmRationale, matchingSource }`.
+ *
+ * For now this wraps `rankVolunteersForTask` deterministically.
+ * Drop-in LLM re-ranking (Stage 3) can be added here later by calling
+ * the /api/ai/explain-match endpoint per candidate.
+ *
+ * @param {object}   task
+ * @param {object[]} volunteers
+ * @param {object}   opts
+ * @param {object}   [opts.crisisCtx]      Crisis context from the request body
+ * @param {boolean}  [opts.useLLM]         Reserved for future LLM re-rank pass
+ * @param {boolean}  [opts.useLLMWeights]  Reserved for future LLM weight derivation
+ * @returns {Promise<{ ranked, weightMeta, llmRationale, matchingSource }>}
+ */
+export async function rankVolunteersWithAI(
+  task,
+  volunteers = [],
+  { crisisCtx = {}, useLLM = false, useLLMWeights = false } = {},
+) {
+  const ranked = rankVolunteersForTask(task, volunteers, {
+    regionFilter: crisisCtx?.region,
+  });
+
+  const weightMeta = {
+    crisisType: crisisCtx?.type || task.crisisType || 'general',
+    urgency: task.priority || crisisCtx?.urgency || 'medium',
+    weights: { ...WEIGHTS },
+    source: useLLMWeights ? 'llm-weights-pending' : 'deterministic',
+  };
+
+  return {
+    ranked,
+    weightMeta,
+    llmRationale: useLLM
+      ? 'LLM holistic re-ranking is not yet implemented; deterministic scores used.'
+      : null,
+    matchingSource: 'deterministic',
+  };
+}

@@ -86,6 +86,10 @@ function extractNeedsWithKeywords(text) {
   const textLower = text.toLowerCase();
 
   for (const [category, pattern] of Object.entries(NEEDS_PATTERNS)) {
+    // FIX: Global regexes (/gi) maintain lastIndex across calls. Calling .test()
+    // without resetting lastIndex causes intermittent false negatives on repeated
+    // invocations (the regex starts searching from where it last left off).
+    pattern.lastIndex = 0;
     if (pattern.test(textLower)) {
       needs.push(category);
     }
@@ -106,6 +110,9 @@ function classifyNeedsWithPriority(text, detectedNeeds) {
     let priority = 'medium'; // default
 
     // Check for high priority indicators
+    // FIX: Reset lastIndex on global regexes before each test() call.
+    if (NEED_PRIORITY_INDICATORS[need]?.high) NEED_PRIORITY_INDICATORS[need].high.lastIndex = 0;
+    if (NEED_PRIORITY_INDICATORS[need]?.medium) NEED_PRIORITY_INDICATORS[need].medium.lastIndex = 0;
     if (NEED_PRIORITY_INDICATORS[need]?.high?.test(textLower)) {
       priority = 'high';
     } else if (NEED_PRIORITY_INDICATORS[need]?.medium?.test(textLower)) {
@@ -139,6 +146,7 @@ function extractUrgencyWithKeywords(text) {
   const textLower = text.toLowerCase();
   
   for (const [level, pattern] of Object.entries(URGENCY_PATTERNS)) {
+    pattern.lastIndex = 0; // FIX: reset global regex state before each test()
     if (pattern.test(textLower)) {
       return level;
     }

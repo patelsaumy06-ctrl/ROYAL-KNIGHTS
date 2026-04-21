@@ -1,11 +1,14 @@
-const env = globalThis.process?.env ?? {};
+// FIX: Was reading env vars via globalThis.process?.env directly, bypassing
+// the centralized config.js. Also incorrectly referenced VITE_GEMINI_API_KEY
+// (a client-side Vite prefix that should never appear in server code).
+import config from './config.js';
 
-const CLAUDE_API_KEY = env.CLAUDE_API_KEY;
-const CLAUDE_MODEL = env.CLAUDE_MODEL || "claude-sonnet-4-20250514";
-const GEMINI_API_KEY = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = env.GEMINI_MODEL || "gemini-1.5-flash";
-const OPENAI_API_KEY = env.OPENAI_API_KEY;
-const OPENAI_MODEL = env.OPENAI_MODEL || "gpt-4o-mini";
+const CLAUDE_API_KEY = config.claudeApiKey;
+const CLAUDE_MODEL = config.claudeModel;
+const GEMINI_API_KEY = config.geminiApiKey;
+const GEMINI_MODEL = config.geminiModel;
+const OPENAI_API_KEY = config.openaiApiKey;
+const OPENAI_MODEL = config.openaiModel;
 
 function cleanJsonPayload(text = "") {
   return text.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
@@ -194,12 +197,13 @@ async function callOpenAI(reportText, context = {}) {
     throw new Error(`OpenAI failed (${response.status}): ${await response.text()}`);
   }
   const data = await response.json();
-  const raw = data?.output_text || "{}";
+  // FIX: output_text is an SDK-only convenience; raw API returns output[].content[].text
+  const raw = data?.output?.[0]?.content?.[0]?.text || "{}";
   return normalizeResult(JSON.parse(cleanJsonPayload(raw)));
 }
 
 export async function analyzeIncidentReport(reportText, options = {}) {
-  const provider = String(options.provider || env.AI_PROVIDER || "auto").toLowerCase();
+  const provider = String(options.provider || process.env.AI_PROVIDER || "auto").toLowerCase();
   const context = options.context || {};
 
   // Explicit provider selection

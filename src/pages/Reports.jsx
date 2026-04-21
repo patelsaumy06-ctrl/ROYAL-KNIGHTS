@@ -240,7 +240,7 @@ export default function Reports({ intelligence = null }) {
             <div style={{fontSize:14,fontWeight:600,color:G.t1}}>Resolution Rate by Category</div>
           </div>
           <div style={{padding:22}}>
-            {chart.resolution.map(r=>(
+            {chart?.resolution?.map(r=>(
               <ProgressBar key={r.label} label={r.label} value={r.value} max={100}
                 color={r.value>=80?G.green:r.value>=50?G.blue:r.value>=40?G.amber:G.red}/>
             ))}
@@ -251,7 +251,7 @@ export default function Reports({ intelligence = null }) {
             <div style={{fontSize:14,fontWeight:600,color:G.t1}}>Impact Trend</div>
           </div>
           <div style={{padding:22}}>
-            <BarChart data={(impactTrend.length ? impactTrend : chart.trends).map(t=>({label:t.month || t.label,value:t.completed ?? t.value,color:G.blue}))} height={140}/>
+            <BarChart data={(impactTrend.length ? impactTrend : chart?.trends || []).map(t=>({label:t.month || t.label,value:t.completed ?? t.value,color:G.blue}))} height={140}/>
           </div>
         </div>
       </div>

@@ -28,6 +28,11 @@ const config = {
   // ── CORS ──────────────────────────────────────────────────────
   corsOrigin: env.CORS_ORIGIN || 'http://localhost:5173',
 
+  // ── Maps ──────────────────────────────────────────────────────
+  // FIX: Surface Google Maps key via health endpoint for diagnostics.
+  // Set GOOGLE_MAPS_API_KEY in .env (see .env.example).
+  googleMapsApiKey: env.GOOGLE_MAPS_API_KEY || '',
+
   // ── Cache ─────────────────────────────────────────────────────
   matchCacheTtlMs: Number(env.MATCH_CACHE_TTL_MS) || 5 * 60 * 1000,  // 5 min
   matchCacheMaxSize: Number(env.MATCH_CACHE_MAX_SIZE) || 500,

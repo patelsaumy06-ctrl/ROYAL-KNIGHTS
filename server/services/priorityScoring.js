@@ -94,17 +94,24 @@ function calculateNeedTypeScore(needs) {
   if (!Array.isArray(needs) || needs.length === 0) {
     return 0;
   }
-  
-  // Find the highest priority need
+
+  // FIX: needs can be either plain strings (old format) or {type, priority} objects
+  // (format returned by reportAnalyzer). Handle both so the process-report pipeline
+  // doesn't silently score 0 for every need type.
   let maxScore = 0;
   for (const need of needs) {
-    const normalizedNeed = typeof need === 'string' 
-      ? need.toLowerCase().trim() 
-      : 'other';
+    let normalizedNeed;
+    if (typeof need === 'string') {
+      normalizedNeed = need.toLowerCase().trim();
+    } else if (need !== null && typeof need === 'object') {
+      normalizedNeed = String(need.type || 'other').toLowerCase().trim();
+    } else {
+      normalizedNeed = 'other';
+    }
     const weight = NEED_TYPE_WEIGHTS[normalizedNeed] || NEED_TYPE_WEIGHTS.other;
     maxScore = Math.max(maxScore, weight);
   }
-  
+
   return maxScore;
 }
 
@@ -203,8 +210,10 @@ export function sortByPriority(issues) {
     if (affectedB !== affectedA) return affectedB - affectedA;
 
     // Tertiary: Medical needs (medical = higher priority)
-    const hasMedicalA = Array.isArray(a.needs) && a.needs.includes('medical');
-    const hasMedicalB = Array.isArray(b.needs) && b.needs.includes('medical');
+    // FIX: needs can be {type, priority} objects, not just strings.
+    const needType = (n) => (typeof n === 'string' ? n : n?.type) || '';
+    const hasMedicalA = Array.isArray(a.needs) && a.needs.some(n => needType(n) === 'medical');
+    const hasMedicalB = Array.isArray(b.needs) && b.needs.some(n => needType(n) === 'medical');
     if (hasMedicalB !== hasMedicalA) return hasMedicalB ? 1 : -1;
 
     return 0;

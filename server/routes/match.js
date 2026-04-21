@@ -16,7 +16,11 @@ import config from '../config.js';
 import crypto from 'crypto';
 
 // Import the upgraded matching engine
-import { rankVolunteersForTask, generateRecommendations as generateVolunteerRecommendations } from '../services/matchingEngine.js';
+import {
+  rankVolunteersForTask,
+  rankVolunteersWithAI,
+  generateVolunteerRecommendations,
+} from '../services/matchingEngine.js';
 
 const router = Router();
 
@@ -60,7 +64,18 @@ router.post(
         }
       }
 
-      const { ranked, weightMeta } = rankVolunteersForTask(task, volunteers, { crisisCtx });
+      // FIX: rankVolunteersForTask returns a plain sorted array, not { ranked, weightMeta }.
+      // Destructuring it produced ranked=undefined and weightMeta=undefined, causing
+      // silent empty responses and crashing the log line below.
+      const ranked = rankVolunteersForTask(task, volunteers, {
+        regionFilter: crisisCtx?.region,
+      });
+
+      const weightMeta = {
+        crisisType: crisisCtx?.type || task.crisisType || 'general',
+        urgency: task.priority || crisisCtx?.urgency || 'medium',
+        source: 'deterministic',
+      };
 
       const payload = {
         ranked,

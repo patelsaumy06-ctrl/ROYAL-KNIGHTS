@@ -13,7 +13,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 const fadeIn = (delay=0) => ({initial:{opacity:0,y:20},animate:{opacity:1,y:0},transition:{duration:0.5,delay,ease:[0.16,1,0.3,1]}});
 
 export default function Insights({ onNav, onEmergencyActivated, intelligence = null, smartMode = false }) {
-  const [needs,setNeeds] = useState(null);
+  const [needs,setNeeds] = useState([]);
   const [chart,setChart] = useState(null);
   const [filter,setFilter] = useState("all");
   const [loading,setLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function Insights({ onNav, onEmergencyActivated, intelligence = n
 
   if(loading) return <Spinner/>;
 
-  const filtered = filter==="all" ? needs : needs.filter(n=>n.priority===filter);
+  const filtered = filter==="all" ? needs : needs?.filter(n=>n.priority===filter) || [];
   const chips = ["all","urgent","medium","low"];
   const predictions = intelligence?.predictions || [];
   const priorityTasks = intelligence?.prioritizedTasks || [];
@@ -120,7 +120,7 @@ export default function Insights({ onNav, onEmergencyActivated, intelligence = n
       <motion.div {...fadeIn(0.1)} style={{display:"grid",gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(3,1fr)",gap: isMobile ? 14 : 20,marginBottom:28}}>
         {["urgent","medium","low"].map((p,idx)=>{
           const cfg = priorityConfig[p];
-          const pNeeds = needs.filter(n=>n.priority===p);
+          const pNeeds = needs?.filter(n=>n.priority===p) || [];
           return (
             <motion.div key={p} {...fadeIn(0.1+idx*0.05)}
               style={{
@@ -176,7 +176,7 @@ export default function Insights({ onNav, onEmergencyActivated, intelligence = n
             <div style={{...css.tag(G.greenLight,G.green)}}><TrendingUp size={12}/> Growing</div>
           </div>
           <div style={{padding:24}}>
-            {chart && <BarChart data={chart.trends.map(t=>({...t,color:G.blue}))} height={160}/>}
+            {chart && <BarChart data={chart?.trends?.map(t=>({...t,color:G.blue})) || []} height={160}/>}
           </div>
         </motion.div>
 
