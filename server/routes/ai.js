@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { sanitizeBody, validateBody, required, isString, isObject } from '../middleware/validate.js';
 import { parseDocument } from '../services/geminiProxy.js';
 import { analyzeIncidentReport } from '../incidentAiService.js';
-import { analyzeReport, analyzeReportsBatch } from '../services/reportAnalyzer.js';
+import { analyzeReport, analyzeReportsBatch, extractNeedsFromText } from '../services/reportAnalyzer.js';
 import { calculatePriorityScore, rankIssues, getPriorityCategory } from '../services/priorityScoring.js';
 import { calculateMatch, findMatchesForTask, matchTasksToVolunteers, getMatchQuality } from '../services/volunteerMatching.js';
 import config from '../config.js';
@@ -587,25 +587,38 @@ router.post(
   sanitizeBody,
   async (req, res) => {
     try {
-      const { reportText, volunteers = [], useLLM } = req.body || {};
+      // Accept both 'reportText' and 'report' as the field name for resilience
+      const { reportText, report: reportAlt, volunteers = [], useLLM } = req.body || {};
+      const inputText = reportText || reportAlt;
 
-      if (!reportText || typeof reportText !== 'string' || !reportText.trim()) {
+      if (!inputText || typeof inputText !== 'string' || !inputText.trim()) {
         return res.status(400).json({ error: "A non-empty 'reportText' field is required." });
       }
 
-      // Step 1: Analyze report (NLP)
-      const analysis = await analyzeReport(reportText, { useLLM });
+      // ── DEBUG: log input ──────────────────────────────────────────
+      console.log(`[NeedsExtractor] process-report: input text (first 300 chars): ${inputText.slice(0, 300)}`);
 
-      // Step 2: Assign priority score
-      const scored = calculatePriorityScore(analysis);
+      // Step 1: Analyze report → extract MULTIPLE structured needs
+      const analysis = await analyzeReport(inputText, { useLLM });
+
+      // ── DEBUG: log extracted needs ────────────────────────────────
+      console.log(`[NeedsExtractor] process-report: extracted ${analysis.needs?.length ?? 0} needs`);
+      console.log('[NeedsExtractor] process-report: needs =', JSON.stringify(analysis.needs, null, 2));
+
+      // Step 2: Assign priority score (uses legacy needs_legacy field if present)
+      const legacyAnalysis = {
+        ...analysis,
+        needs: analysis.needs_legacy || analysis.needs.map(n => ({ type: n.category, priority: n.priority })),
+      };
+      const scored = calculatePriorityScore(legacyAnalysis);
 
       // Step 3: Match volunteers (if pool provided)
       let volunteerMatches = [];
       let matchSummary = null;
       if (Array.isArray(volunteers) && volunteers.length > 0) {
         const task = {
-          location: scored.location || '',
-          needs: scored.needs.map(n => n.type),
+          location: analysis.meta?.location || analysis.location || '',
+          needs: analysis.needs.map(n => n.category),
           priority_score: scored.priority_score,
         };
         volunteerMatches = findMatchesForTask(task, volunteers, 5);
@@ -617,18 +630,26 @@ router.post(
         };
       }
 
-      // Step 4: Build pipeline result
+      // Step 4: Build pipeline result with the NEW top-level needs[] + meta
       const result = {
         pipeline: 'analyze → score → match',
+        // ── NEW top-level contract (what the frontend consumes directly) ──
+        needs: analysis.needs,          // Array of { category, description, peopleAffected, priority, confidence }
+        meta: {
+          location: analysis.meta?.location || analysis.location || '',
+          riskScore: analysis.meta?.riskScore ?? (scored.priority_score / 10),
+        },
+        // ── Existing nested report block (preserved for backward-compat) ──
         report: {
-          location: scored.location,
-          urgency_level: scored.urgency_level,
-          needs: scored.needs,
-          affected_people_estimate: scored.affected_people_estimate,
-          summary: scored.summary,
-          confidence_score: scored.confidence_score,
-          _extraction_method: scored._extraction_method,
-          _reasoning: scored._reasoning,
+          location: analysis.location,
+          urgency_level: analysis.urgency_level,
+          needs: analysis.needs,
+          needs_legacy: analysis.needs_legacy,
+          affected_people_estimate: analysis.affected_people_estimate,
+          summary: analysis.summary,
+          confidence_score: analysis.confidence_score,
+          _extraction_method: analysis._extraction_method,
+          _reasoning: analysis._reasoning,
         },
         priority: {
           score: scored.priority_score,
@@ -640,9 +661,10 @@ router.post(
           : { total_candidates: 0, matched: 0, top_volunteers: [] },
       };
 
-      console.log(
-        `[AI] process-report by=${req.user.email} method=${scored._extraction_method} score=${scored.priority_score} matches=${volunteerMatches.length}`,
-      );
+      // ── DEBUG: log final response summary ────────────────────────
+      console.log(`[NeedsExtractor] process-report: FINAL RESPONSE — needs=${result.needs.length} location="${result.meta.location}" riskScore=${result.meta.riskScore} method=${analysis._extraction_method}`);
+      console.log(`[AI] process-report by=${req.user.email} method=${analysis._extraction_method} score=${scored.priority_score} needs=${result.needs.length} matches=${volunteerMatches.length}`);
+
       return res.json(result);
     } catch (error) {
       console.error('[AI] process-report error:', error.message);

@@ -49,11 +49,103 @@ async function simulateBackendResponse(path, options) {
     };
   }
   if (path.includes('/ai/process-report')) {
+    // Parse input text for basic keyword detection so demo results feel contextual
+    const body = options.body ? JSON.parse(options.body) : {};
+    const inputText = String(body.reportText || body.report || '').toLowerCase();
+
+    const hasWater    = /water|borewell|flood|drinking|sanitation/.test(inputText);
+    const hasMedical  = /medical|doctor|hospital|sick|injured|fever|diarrhea|ambulance/.test(inputText);
+    const hasFood     = /food|hunger|starvation|ration|malnutrition/.test(inputText);
+    const hasShelter  = /shelter|homeless|displaced|tent|roof|collapsed/.test(inputText);
+    const hasEducation= /school|student|education|supplies|notebook|pencil|learning/.test(inputText);
+
+    // Extract any numbers from the text
+    const numbers = (inputText.match(/\d[\d,]*/g) || []).map(n => parseInt(n.replace(/,/g, ''), 10)).filter(n => n > 100);
+    const topNumber   = numbers[0] || 4200;
+    const secondNumber= numbers[1] || 1800;
+
+    const demoNeeds = [];
+    if (hasWater || (!hasMedical && !hasFood && !hasShelter && !hasEducation)) {
+      demoNeeds.push({
+        category: 'water',
+        description: `Water supply disrupted — ${topNumber.toLocaleString()} residents without clean water (borewells non-functional).`,
+        peopleAffected: topNumber,
+        priority: 'critical',
+        confidence: 0.93,
+      });
+    }
+    if (hasMedical || !hasWater) {
+      demoNeeds.push({
+        category: 'medical',
+        description: `${secondNumber.toLocaleString()} people need immediate medical attention — fever, diarrhea, untreated injuries.`,
+        peopleAffected: secondNumber,
+        priority: 'high',
+        confidence: 0.90,
+      });
+    }
+    if (hasFood) {
+      demoNeeds.push({
+        category: 'food',
+        description: `Food ration shortage — families running critically low on supplies.`,
+        peopleAffected: Math.round(topNumber * 0.4),
+        priority: 'high',
+        confidence: 0.85,
+      });
+    }
+    if (hasShelter) {
+      demoNeeds.push({
+        category: 'shelter',
+        description: `Displaced residents require emergency shelter — homes damaged or destroyed.`,
+        peopleAffected: Math.round(topNumber * 0.3),
+        priority: 'high',
+        confidence: 0.82,
+      });
+    }
+    if (hasEducation) {
+      demoNeeds.push({
+        category: 'education',
+        description: `Primary school lacks basic learning materials — students unable to attend classes.`,
+        peopleAffected: 180,
+        priority: 'medium',
+        confidence: 0.78,
+      });
+    }
+    // Ensure at least one need is always present
+    if (demoNeeds.length === 0) {
+      demoNeeds.push({
+        category: 'medical',
+        description: 'Medical support needed for affected population.',
+        peopleAffected: topNumber,
+        priority: 'high',
+        confidence: 0.70,
+      });
+    }
+
+    const location = inputText.match(/\bin\s+([a-z]+(?:\s[a-z]+)?)\s*(?:village|district|town)?/i)?.[1] || 'Affected Area';
+
+    console.log(`[Demo/Static Mode] process-report: returning ${demoNeeds.length} demo needs`);
+
     return {
       pipeline: 'demo-pipeline',
-      report: { summary: "Simulated NLP extraction based on the provided text.", urgency_level: "high" },
-      priority: { score: 85, label: "Urgent" },
-      matches: []
+      // ── Top-level new contract ──
+      needs: demoNeeds,
+      meta: {
+        location: location.charAt(0).toUpperCase() + location.slice(1),
+        riskScore: 8.5,
+      },
+      // ── Legacy nested report block ──
+      report: {
+        location: location.charAt(0).toUpperCase() + location.slice(1),
+        urgency_level: 'high',
+        needs: demoNeeds,
+        affected_people_estimate: topNumber,
+        summary: `A high-severity incident has affected ${topNumber.toLocaleString()} residents. Immediate response needed for: ${demoNeeds.map(n => n.category).join(', ')}.`,
+        confidence_score: 0.82,
+        _extraction_method: 'demo-fallback',
+        _reasoning: { needs: `Demo mode: detected ${demoNeeds.length} needs from keyword analysis of input text.` },
+      },
+      priority: { score: 85, category: 'Critical', breakdown: {} },
+      matches: { total_candidates: 0, matched: 0, top_volunteers: [] },
     };
   }
   if (path.includes('/ai/analyze-report')) {

@@ -100,33 +100,70 @@ export default function Upload() {
 
       const pipeline = await backendApi.processReport(text);
 
+      // ── DEBUG: log raw pipeline response ─────────────────────────
+      console.debug('[NeedsExtractor] Upload: raw pipeline response =', JSON.stringify(pipeline, null, 2));
+
       setSteps(s => s.map((x, i) => i === s.length - 1 ? { ...x, status: 'done' } : x));
 
-      const method = pipeline.report?._extraction_method || 'keyword_fallback';
-      addStep(`AI extracted report data via ${method === 'llm_claude' ? 'Claude' : method === 'llm_gemini' ? 'Gemini' : 'keyword'} analysis`);
-      addStep(`Identified ${pipeline.report?.needs?.length || 0} community needs with priority score ${pipeline.priority?.score || 'N/A'}`);
+      const method = pipeline.report?._extraction_method || pipeline._extraction_method || 'keyword_fallback';
+      addStep(`AI extracted report data via ${method === 'llm_claude' ? 'Claude' : method === 'llm_gemini' ? 'Gemini' : method === 'demo-fallback' ? 'Demo' : 'keyword'} analysis`);
 
-      // Transform pipeline result to the Upload result format
+      // ── Read needs from new top-level contract, fall back to report.needs ──
+      //    New shape: pipeline.needs = [{ category, description, peopleAffected, priority, confidence }]
+      //    Old shape: pipeline.report.needs = [{ type, priority }]
+      const rawNeeds = pipeline.needs || pipeline.report?.needs || [];
+
+      console.debug('[NeedsExtractor] Upload: rawNeeds from pipeline =', JSON.stringify(rawNeeds, null, 2));
+      addStep(`Identified ${rawNeeds.length} community needs with priority score ${pipeline.priority?.score || 'N/A'}`);
+
+      const location = pipeline.meta?.location || pipeline.report?.location || 'Unknown Village';
+      const riskScore = pipeline.meta?.riskScore ?? pipeline.priority?.score ?? 50;
       const today = new Date();
+
+      // ── Transform to Upload result format ──────────────────────────
       const transformed = {
-        village: pipeline.report?.location || 'Unknown Village',
-        region: pipeline.report?.location || 'Gujarat',
-        totalRecords: pipeline.report?.needs?.length || 1,
+        village: location,
+        region: location || 'Gujarat',
+        totalRecords: rawNeeds.length || 1,
         summary: pipeline.report?.summary || 'Field report analyzed by AI.',
-        needs: (pipeline.report?.needs || []).map(n => ({
-          category: n.type?.charAt(0).toUpperCase() + n.type?.slice(1) || 'Other',
-          priority: n.priority === 'high' ? 'urgent' : n.priority || 'medium',
-          volunteersNeeded: Math.max(2, Math.ceil((pipeline.priority?.score || 50) / 15)),
-          description: `${n.type} need identified as ${n.priority} priority in ${pipeline.report?.location || 'affected area'}`,
-          affectedPeople: pipeline.report?.affected_people_estimate || 0,
-          deadline: new Date(today.getTime() + (n.priority === 'high' ? 3 : n.priority === 'medium' ? 7 : 14) * 86400000).toISOString().split('T')[0],
-        })),
+        needs: rawNeeds.map(n => {
+          // Support both new { category, priority, peopleAffected, description } and legacy { type, priority }
+          const category    = n.category || n.type || 'other';
+          const priorityRaw = n.priority || 'medium';
+          // Normalize priority names: 'critical'→'urgent', others pass through
+          const priority    = priorityRaw === 'critical' ? 'urgent' : priorityRaw;
+          const peopleAffected = typeof n.peopleAffected === 'number'
+            ? n.peopleAffected
+            : (pipeline.report?.affected_people_estimate || 0);
+          // Use AI-generated description if available, else build a generic one
+          const description = n.description
+            || `${category.charAt(0).toUpperCase() + category.slice(1)} need identified as ${priorityRaw} priority in ${location}`;
+
+          const deadlineDays = priority === 'urgent' ? 3 : priority === 'high' ? 5 : priority === 'medium' ? 7 : 14;
+
+          return {
+            category: category.charAt(0).toUpperCase() + category.slice(1),
+            priority,
+            volunteersNeeded: Math.max(2, Math.ceil(riskScore / 15)),
+            description,
+            affectedPeople: peopleAffected,
+            confidence: typeof n.confidence === 'number' ? n.confidence : null,
+            deadline: new Date(today.getTime() + deadlineDays * 86400000).toISOString().split('T')[0],
+          };
+        }),
         aiInsights: [
           `Priority score: ${pipeline.priority?.score || 'N/A'}/100 (${pipeline.priority?.category || 'unclassified'})`,
-          pipeline.report?.confidence_score ? `Confidence: ${Math.round(pipeline.report.confidence_score * 100)}%` : 'Confidence: not available',
+          pipeline.report?.confidence_score
+            ? `Confidence: ${Math.round(pipeline.report.confidence_score * 100)}%`
+            : 'Confidence: not available',
           ...(pipeline.report?._reasoning?.needs ? [pipeline.report._reasoning.needs] : []),
-        ],
+          pipeline.meta?.riskScore ? `Risk score: ${pipeline.meta.riskScore}/10` : null,
+        ].filter(Boolean),
       };
+
+      // ── DEBUG: log transformed result ─────────────────────────────
+      console.debug('[NeedsExtractor] Upload: transformed result =', JSON.stringify(transformed, null, 2));
+      console.log(`[NeedsExtractor] Upload: ${transformed.needs.length} needs ready for display`);
 
       setResult(transformed);
     } catch (err) {
@@ -139,6 +176,7 @@ export default function Upload() {
 
     setProcessing(false);
   };
+
 
   // ── Confirm: push extracted needs into DB ────────────────────────────────
   const confirmAndSave = async () => {

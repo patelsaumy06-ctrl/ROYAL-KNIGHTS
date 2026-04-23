@@ -31,7 +31,9 @@ export function readFileAsBase64(file) {
 }
 
 export const priorityStyle = {
-  urgent: { bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
-  medium: { bg: "#FFFBEB", color: "#D97706", border: "#FDE68A" },
-  low:    { bg: "#F0FDF4", color: "#16A34A", border: "#BBF7D0" },
+  critical: { bg: "#FFF0F0", color: "#B91C1C", border: "#FCA5A5" },
+  urgent:   { bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
+  high:     { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" },
+  medium:   { bg: "#FFFBEB", color: "#D97706", border: "#FDE68A" },
+  low:      { bg: "#F0FDF4", color: "#16A34A", border: "#BBF7D0" },
 };
