@@ -484,21 +484,64 @@ export default function Upload() {
             </div>
             <div style={{ display: "grid", gap: 16 }}>
               {result.needs.map((n, i) => {
-                const ps = priorityStyle[n.priority] || priorityStyle.low;
+                const ps = priorityStyle[n.priority] || priorityStyle.medium;
+                const confPct = n.confidence != null ? Math.round(n.confidence * 100) : null;
+                const confColor = confPct >= 85 ? '#16A34A' : confPct >= 65 ? '#D97706' : '#DC2626';
                 return (
                   <div key={i} className="hover-card" style={{ background: "rgba(255,255,255,0.5)", border: `1px solid ${ps.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", gap: 20, alignItems: "flex-start", position: "relative", overflow: "hidden" }}>
+                    {/* Priority accent bar */}
                     <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 4, background: ps.color }} />
-                    <div style={{ flexShrink: 0, marginTop: 2 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 100, background: ps.border, color: ps.color, boxShadow: `0 2px 8px ${ps.border}` }}>
+                    {/* Priority badge */}
+                    <div style={{ flexShrink: 0, marginTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 100, background: ps.border, color: ps.color, boxShadow: `0 2px 8px ${ps.border}`, whiteSpace: 'nowrap' }}>
                         {n.priority.toUpperCase()}
                       </span>
+                      {n.priorityScore != null && (
+                        <span title="Priority matrix score (severity × population × time)" style={{ fontSize: 10, fontWeight: 700, color: ps.color, background: ps.border, borderRadius: 8, padding: '2px 8px', letterSpacing: '0.02em' }}>
+                          {n.priorityScore.toFixed(1)}/10
+                        </span>
+                      )}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: G.t1, marginBottom: 8 }}>{n.category}</div>
-                      <div style={{ fontSize: 14, color: G.t2, lineHeight: 1.6, fontWeight: 500 }}>{n.description}</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 24px", marginTop: 16, fontSize: 12, color: G.t2, fontWeight: 600 }}>
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: G.t1, marginBottom: 6 }}>{n.category}</div>
+                      <div style={{ fontSize: 14, color: G.t2, lineHeight: 1.6, fontWeight: 500, marginBottom: 12 }}>{n.description}</div>
+
+                      {/* Confidence bar */}
+                      {confPct != null && (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: G.t3, textTransform: 'uppercase', letterSpacing: '0.08em' }}>AI Confidence</span>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: confColor }}>{confPct}%</span>
+                          </div>
+                          <div style={{ height: 5, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%',
+                              width: `${confPct}%`,
+                              borderRadius: 99,
+                              background: `linear-gradient(90deg, ${confColor}aa, ${confColor})`,
+                              transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)',
+                            }} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Evidence signals */}
+                      {Array.isArray(n.evidenceSignals) && n.evidenceSignals.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                          {n.evidenceSignals.map((sig, si) => (
+                            <span key={si} style={{ fontSize: 10, fontWeight: 600, color: G.t2, background: 'rgba(0,0,0,0.04)', border: `1px solid rgba(0,0,0,0.07)`, borderRadius: 6, padding: '2px 8px', fontStyle: 'italic' }}>
+                              "{sig}"
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 20px", fontSize: 12, color: G.t2, fontWeight: 600 }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.03)", padding: "4px 10px", borderRadius: 8 }}>👥 {n.volunteersNeeded} volunteers needed</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.03)", padding: "4px 10px", borderRadius: 8 }}>🧑‍🤝‍🧑 ~${n.affectedPeople?.toLocaleString()} affected</span>
+                        {n.affectedPeople > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.03)", padding: "4px 10px", borderRadius: 8 }}>🧑‍🤝‍🧑 ~{n.affectedPeople?.toLocaleString()} affected</span>
+                        )}
                         <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.03)", padding: "4px 10px", borderRadius: 8 }}>📅 Deadline: {n.deadline}</span>
                       </div>
                     </div>

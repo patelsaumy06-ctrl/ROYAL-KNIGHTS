@@ -327,18 +327,38 @@ function extractGlobalAffectedCount(text) {
  * Extract people count scoped to a specific need category.
  * Falls back to the global affected count if no context-specific match.
  */
+/**
+ * Extract people count scoped to a specific need category.
+ * Uses a ±2 sentence window around category keyword mentions for precision.
+ * Falls back to global count if no context-specific number found.
+ */
 function extractPerNeedPeopleCount(text, category, globalCount) {
+  // Build a keyword regex for the category to find relevant sentences
+  const keyRegex = new RegExp(`\\b(${category}|${Object.keys(CONTEXT_NUMBER_PATTERNS).includes(category) ? category : ''})\\b`, 'gi');
+  const sentences = splitSentences(text);
+  const window = getSentenceWindow(sentences, keyRegex, 2);
+  const searchText = window || text; // fall back to full text if no window found
+
   const patterns = CONTEXT_NUMBER_PATTERNS[category];
   if (patterns) {
     for (const p of patterns) {
-      const match = text.match(p);
+      const match = searchText.match(p);
       if (match) {
         const n = parseNumber(match[1]);
-        if (n > 0) return n;
+        if (n > 0 && n <= 100_000_000) return n; // sanity cap: 100M
       }
     }
   }
-  // Secondary fallback: use a fraction of global count for shared needs
+  // For categories without specific patterns, try global patterns in the window
+  if (window) {
+    for (const p of GLOBAL_NUMBER_PATTERNS) {
+      const match = window.match(p);
+      if (match) {
+        const n = parseNumber(match[1]);
+        if (n > 0 && n <= 100_000_000) return n;
+      }
+    }
+  }
   return globalCount || 0;
 }
 
@@ -503,6 +523,7 @@ function generateNeedDescription(category, text, location, peopleAffected) {
 const SYSTEM_PROMPT = `You are an expert AI system for analyzing humanitarian field reports and extracting MULTIPLE structured community needs.
 
 CRITICAL: You MUST identify ALL distinct need types present in the report — do NOT collapse them into one.
+The report may be messy, use abbreviations, or mix Hindi/English — handle gracefully.
 
 Return ONLY valid JSON in this EXACT format:
 
@@ -513,7 +534,9 @@ Return ONLY valid JSON in this EXACT format:
       "description": "Clear 1-sentence description of the specific need with context",
       "peopleAffected": 0,
       "priority": "critical | high | medium | low",
-      "confidence": 0.0
+      "priorityScore": 0.0,
+      "confidence": 0.0,
+      "evidenceSignals": ["e.g. borewell non-functional", "3 borewells mentioned"]
     }
   ],
   "meta": {
@@ -540,8 +563,10 @@ EXTRACTION RULES:
    - Each need gets its OWN object in the array
    - description: 1 sentence, specific, actionable (e.g. "3 borewells non-functional in Rajpur village — ~4200 people without water")
    - peopleAffected: extract the number specific to THIS need if mentioned (e.g. "1800 need medical help" → 1800). Use 0 if not mentioned.
-   - priority: critical (life-threatening), high (urgent but stable), medium (important), low (non-urgent)
-   - confidence: 0.9+ if explicit keywords, 0.7-0.9 if inferred, <0.7 if uncertain
+   - priority: critical (mass-casualty/life-threatening), high (urgent but stable), medium (important), low (non-urgent)
+   - priorityScore: 1-10 scale reflecting severity × population × time-criticality. E.g. water cut-off for 4200 = 9.0, school supplies = 3.5
+   - confidence: evidence strength 0-1. 0.9+ = explicit text evidence; 0.7-0.9 = strong inference; 0.5-0.7 = weak signal; <0.5 = uncertain
+   - evidenceSignals: list of 2-4 brief strings quoting the key evidence phrases from the report
 
 2. LOCATION: Most specific place name mentioned. Empty string if none.
 
@@ -555,21 +580,26 @@ EXAMPLE INPUT: "Severe flooding in Rajpur village... 4200 affected... 3 borewell
 
 EXAMPLE OUTPUT needs array:
 [
-  { "category": "water", "description": "3 borewells non-functional in Rajpur village — ~4200 residents without water", "peopleAffected": 4200, "priority": "critical", "confidence": 0.95 },
-  { "category": "medical", "description": "1800 people need immediate medical attention — fever and injury cases reported", "peopleAffected": 1800, "priority": "high", "confidence": 0.92 },
-  { "category": "education", "description": "Schools in Rajpur village lack basic supplies for students", "peopleAffected": 0, "priority": "medium", "confidence": 0.80 }
+  { "category": "water", "description": "3 borewells non-functional in Rajpur village — ~4200 residents without water", "peopleAffected": 4200, "priority": "critical", "priorityScore": 9.0, "confidence": 0.95, "evidenceSignals": ["3 borewells not working", "4200 affected", "severe flooding"] },
+  { "category": "medical", "description": "1800 people need immediate medical attention — fever and injury cases reported", "peopleAffected": 1800, "priority": "high", "priorityScore": 7.5, "confidence": 0.92, "evidenceSignals": ["1800 need medical help"] },
+  { "category": "education", "description": "Schools in Rajpur village lack basic supplies for students", "peopleAffected": 0, "priority": "medium", "priorityScore": 3.5, "confidence": 0.80, "evidenceSignals": ["schools lack supplies"] }
 ]
 
 RULES:
 - Return ONLY JSON — no markdown, no explanation outside JSON
 - NEVER return an empty needs array if any humanitarian keywords are present
+- Handle Hindi/transliterated words (paani=water, khana=food, bijli=electricity, ilaaj=medical)
+- Handle abbreviations: ppl=people, dist=district, immd=immediate, med=medical
 - Do NOT hallucinate numbers; if specific count not mentioned for a need, use 0
-- Keep descriptions concise and actionable (under 120 chars)`;
+- Keep descriptions concise and actionable (under 140 chars)`;
 
 // ── LLM Provider Calls ─────────────────────────────────────────────────────
 
 async function analyzeWithClaude(text) {
   if (!config.claudeApiKey) throw new Error('CLAUDE_API_KEY not configured');
+
+  // Pre-process: expand abbreviations + transliterations before sending to LLM
+  const processedText = preprocessText(text);
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -582,7 +612,7 @@ async function analyzeWithClaude(text) {
       model: config.claudeModel,
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: `Analyze this humanitarian field report and extract ALL distinct community needs:\n\n${text}` }],
+      messages: [{ role: 'user', content: `Analyze this humanitarian field report and extract ALL distinct community needs:\n\n${processedText}` }],
     }),
   });
 
@@ -600,6 +630,9 @@ async function analyzeWithClaude(text) {
 async function analyzeWithGemini(text) {
   if (!config.geminiApiKey) throw new Error('GEMINI_API_KEY not configured');
 
+  // Pre-process: expand abbreviations + transliterations before sending to LLM
+  const processedText = preprocessText(text);
+
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
 
   const response = await fetch(GEMINI_URL, {
@@ -610,7 +643,7 @@ async function analyzeWithGemini(text) {
         role: 'user',
         parts: [
           { text: SYSTEM_PROMPT },
-          { text: `\n\nAnalyze this humanitarian field report and extract ALL distinct community needs:\n\n${text}` },
+          { text: `\n\nAnalyze this humanitarian field report and extract ALL distinct community needs:\n\n${processedText}` },
         ],
       }],
       generationConfig: {
@@ -636,6 +669,7 @@ async function analyzeWithGemini(text) {
 
 /**
  * Validate and normalise a single need object to the canonical contract.
+ * Passes through scoring breakdowns for UI display.
  */
 function normalizeNeed(item = {}) {
   const category = VALID_CATEGORIES.includes(String(item.category || '').toLowerCase())
@@ -652,13 +686,25 @@ function normalizeNeed(item = {}) {
 
   const confidence = typeof item.confidence === 'number'
     ? Math.round(Math.min(1, Math.max(0, item.confidence)) * 100) / 100
-    : 0.5;
+    : (item._confidenceResult?.score ?? 0.5);
 
   const description = typeof item.description === 'string' && item.description.trim()
     ? item.description.trim()
     : `${CATEGORY_LABELS[category] || category} need identified.`;
 
-  return { category, description, peopleAffected, priority, confidence };
+  // Pass through scoring breakdowns if present (generated by fallback path)
+  const priorityScore    = typeof item.priorityScore === 'number' ? item.priorityScore : null;
+  const priorityBreakdown = item.priorityBreakdown || null;
+  const confidenceBreakdown = item.confidenceBreakdown || item._confidenceResult?.breakdown || null;
+  const evidenceSignals   = item.evidenceSignals || null;
+
+  return {
+    category, description, peopleAffected, priority, confidence,
+    ...(priorityScore    !== null ? { priorityScore }    : {}),
+    ...(priorityBreakdown !== null ? { priorityBreakdown } : {}),
+    ...(confidenceBreakdown !== null ? { confidenceBreakdown } : {}),
+    ...(evidenceSignals  !== null ? { evidenceSignals }  : {}),
+  };
 }
 
 /**
@@ -701,18 +747,19 @@ function normalizeFromLLM(parsed, provider) {
 // ── Fallback Heuristic Extraction ──────────────────────────────────────────
 
 /**
- * Pure keyword + regex extraction — used when all LLM providers fail.
- * Returns the same shape as the LLM path.
+ * Pure keyword + regex + priority-matrix extraction — used when all LLM providers fail.
+ * Returns the same shape as the LLM path, with full scoring breakdowns.
  */
 function fallbackExtraction(text) {
   console.log('[NeedsExtractor] fallback: input text length =', text.length);
   console.log('[NeedsExtractor] fallback: first 300 chars:', text.slice(0, 300));
 
-  const normalized = normalizeText(text);
-  const textLower = normalized.toLowerCase();
+  const normalized  = normalizeText(text); // includes preprocessText()
+  const sentences   = splitSentences(normalized);
 
   // 1. Location
-  const location = extractLocationWithKeywords(normalized);
+  const location    = extractLocationWithKeywords(normalized);
+  const hasLocation = !!location;
 
   // 2. Overall urgency
   const urgency = extractUrgencyWithKeywords(normalized);
@@ -720,70 +767,108 @@ function fallbackExtraction(text) {
   // 3. Global affected count
   const globalCount = extractGlobalAffectedCount(normalized);
 
-  // 4. Detect which need categories are present
+  // 4. Detect which need categories are present (using fulltext for context)
   const detectedCategories = [];
   for (const [category, pattern] of Object.entries(NEEDS_PATTERNS)) {
     pattern.lastIndex = 0;
-    if (pattern.test(textLower)) detectedCategories.push(category);
+    if (pattern.test(normalized)) detectedCategories.push(category);
   }
 
   console.log('[NeedsExtractor] fallback: detected categories =', detectedCategories);
 
-  // 5. Build rich need objects
-  const needs = detectedCategories.slice(0, 8).map(category => {
+  // 5. Build rich need objects with priority matrix + confidence breakdown
+  const rawNeeds = detectedCategories.slice(0, 8).map(category => {
+    // Sentence-window scoped people count
     const peopleAffected = extractPerNeedPeopleCount(normalized, category, globalCount);
-    const priority = detectNeedPriority(category, normalized);
-    const confidence = computeNeedConfidence(category, normalized, peopleAffected > 0);
+
+    // Priority matrix (severity × population × time-criticality)
+    const priorityResult = computePriorityMatrix(category, normalized, peopleAffected, urgency);
+
+    // Multi-signal confidence
+    const confidenceResult = computeNeedConfidence(category, normalized, peopleAffected > 0, hasLocation);
+
+    // Collect evidence signals (what triggered detection)
+    const evidenceSignals = [];
+    const strongPat = STRONG_EVIDENCE_PATTERNS[category];
+    if (strongPat) {
+      strongPat.lastIndex = 0;
+      const matches = normalized.match(strongPat);
+      if (matches) evidenceSignals.push(...matches.slice(0, 2).map(m => m.trim()));
+    }
+    if (peopleAffected > 0) evidenceSignals.push(`${peopleAffected.toLocaleString()} people affected`);
+    if (urgency === 'critical' || urgency === 'high') evidenceSignals.push(`${urgency} urgency`);
+
     const description = generateNeedDescription(category, normalized, location, peopleAffected);
 
-    return normalizeNeed({ category, description, peopleAffected, priority, confidence });
+    return normalizeNeed({
+      category,
+      description,
+      peopleAffected,
+      priority:            priorityResult.label,
+      priorityScore:       priorityResult.score,
+      priorityBreakdown:   priorityResult.breakdown,
+      confidence:          confidenceResult.score,
+      confidenceBreakdown: confidenceResult.breakdown,
+      evidenceSignals:     evidenceSignals.slice(0, 4),
+      _confidenceResult:   confidenceResult,
+    });
   });
 
-  // Sort: critical > high > medium > low
+  // Sort: critical > high > medium > low, then by priorityScore desc
   const ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-  needs.sort((a, b) => (ORDER[a.priority] ?? 4) - (ORDER[b.priority] ?? 4));
+  rawNeeds.sort((a, b) => {
+    const pDiff = (ORDER[a.priority] ?? 4) - (ORDER[b.priority] ?? 4);
+    return pDiff !== 0 ? pDiff : (b.priorityScore ?? 0) - (a.priorityScore ?? 0);
+  });
 
-  // 6. Overall risk score (simple heuristic)
-  const riskScore = urgency === 'high' ? 7.5 : urgency === 'medium' ? 5.0 : 2.5;
-  const confidence_score = needs.length >= 3 ? 0.65 : needs.length > 0 ? 0.55 : 0.3;
+  // 6. Overall risk score — weighted by top need's priority matrix
+  const topPriScore = rawNeeds[0]?.priorityScore ?? 0;
+  const riskScore = Math.min(10, Math.round((topPriScore * 0.6 + (rawNeeds.length > 2 ? 2 : rawNeeds.length)) * 10) / 10);
 
-  // 7. Generate legacy summary
+  // 7. Overall extraction confidence
+  const avgConf = rawNeeds.length > 0
+    ? rawNeeds.reduce((s, n) => s + (n.confidence || 0), 0) / rawNeeds.length
+    : 0;
+  const confidence_score = Math.round(Math.min(0.9, avgConf) * 100) / 100;
+
+  // 8. Generate summary
   const eventPatterns = [
-    { p: /\b(flood|flooding|heavy rain)\b/gi, label: 'flood' },
-    { p: /\b(fire|burning|blaze)\b/gi, label: 'fire' },
-    { p: /\b(earthquake|quake)\b/gi, label: 'earthquake' },
-    { p: /\b(cyclone|storm|hurricane)\b/gi, label: 'cyclone' },
-    { p: /\b(drought|water shortage)\b/gi, label: 'drought' },
-    { p: /\b(landslide|mudslide)\b/gi, label: 'landslide' },
+    { p: /\b(flood|flooding|heavy rain|waterlog|inundat)\b/gi,  label: 'flood' },
+    { p: /\b(fire|burning|blaze)\b/gi,                            label: 'fire' },
+    { p: /\b(earthquake|quake|tremor)\b/gi,                       label: 'earthquake' },
+    { p: /\b(cyclone|storm|hurricane|typhoon)\b/gi,               label: 'cyclone' },
+    { p: /\b(drought|water shortage|sukha)\b/gi,                  label: 'drought' },
+    { p: /\b(landslide|mudslide)\b/gi,                            label: 'landslide' },
+    { p: /\b(outbreak|epidemic|disease spread)\b/gi,              label: 'disease outbreak' },
   ];
   let eventType = 'incident';
   for (const { p, label } of eventPatterns) {
     if (p.test(text)) { eventType = label; break; }
   }
 
-  const locStr = location || 'the affected area';
+  const locStr    = location || 'the affected area';
   const impactStr = globalCount > 0 ? `${globalCount.toLocaleString()} people affected` : 'residents affected';
-  const summary = `A ${urgency === 'high' ? 'high-severity' : 'moderate'} ${eventType} in ${locStr} has left ${impactStr}. Immediate response needed for: ${needs.slice(0, 3).map(n => n.category).join(', ')}.`;
+  const summary   = `A ${urgency === 'critical' ? 'critical' : urgency === 'high' ? 'high-severity' : 'moderate'} ${eventType} in ${locStr} has left ${impactStr}. Immediate response needed for: ${rawNeeds.slice(0, 3).map(n => n.category).join(', ')}.`;
 
   const result = {
-    needs,
+    needs: rawNeeds,
     meta: { location, riskScore },
     location,
     urgency_level: urgency,
-    needs_legacy: needs.map(n => ({ type: n.category, priority: n.priority })),
+    needs_legacy: rawNeeds.map(n => ({ type: n.category, priority: n.priority })),
     affected_people_estimate: globalCount,
     summary,
     confidence_score,
     _extraction_method: 'keyword_fallback',
     _reasoning: {
-      location: location ? `Extracted "${location}" via pattern matching` : 'No location found',
-      urgency_level: `Assigned "${urgency}" urgency based on keyword signals`,
-      needs: `Detected ${needs.length} need categories: ${detectedCategories.join(', ')}`,
-      affected_people_estimate: globalCount > 0 ? `Extracted global count: ${globalCount}` : 'No count found',
+      location:                  location ? `Extracted "${location}" via pattern matching` : 'No location found',
+      urgency_level:             `Assigned "${urgency}" urgency (${Object.keys(URGENCY_PATTERNS).join('>')} scan)`,
+      needs:                     `Detected ${rawNeeds.length} categories: ${detectedCategories.join(', ')}`,
+      affected_people_estimate:  globalCount > 0 ? `Global count: ${globalCount}` : 'No count found',
     },
   };
 
-  console.log('[NeedsExtractor] fallback: extracted needs =', JSON.stringify(needs, null, 2));
+  console.log('[NeedsExtractor] fallback: extracted needs =', JSON.stringify(rawNeeds.map(n => ({ category: n.category, priority: n.priority, priorityScore: n.priorityScore, confidence: n.confidence, peopleAffected: n.peopleAffected })), null, 2));
   return result;
 }
 
