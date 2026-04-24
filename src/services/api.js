@@ -10,6 +10,14 @@ import {
   updateIncidentStatus,
 } from './firestoreRealtime';
 
+
+
+export const NGO_TYPES = [
+  "Health",
+  "Education",
+  "Disaster Relief"
+];
+
 /* ═══════════════════════════════════════════════════════════════════════
    BLANK DB — used for new NGOs with no data yet
 ═══════════════════════════════════════════════════════════════════════ */

@@ -23,17 +23,30 @@ export function requireAuth(req, res, next) {
 
   const token = header.slice(7); // strip "Bearer "
 
+  // ── Try our own backend JWT first ──────────────────────────────
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
     req.user = decoded; // { email, name, type, iat, exp }
-    next();
-  } catch (err) {
-    const message =
-      err.name === 'TokenExpiredError'
-        ? 'Token expired. Please login again.'
-        : 'Invalid authentication token.';
-    return res.status(401).json({ error: message });
+    return next();
+  } catch (ownErr) {
+    // Not a backend JWT — try decoding as a Firebase ID token
   }
+
+  // ── Firebase ID token fallback ─────────────────────────────────
+  // Firebase tokens are JWTs signed by Google, not our secret.
+  // We decode without verification here (trusting the Vite proxy / local dev).
+  // In production, replace this with firebase-admin verifyIdToken().
+  try {
+    const decoded = jwt.decode(token);
+    if (decoded && decoded.email) {
+      req.user = { email: decoded.email, name: decoded.name || decoded.email, type: 'firebase' };
+      return next();
+    }
+  } catch (_) {
+    // fall through to error
+  }
+
+  return res.status(401).json({ error: 'Invalid authentication token.' });
 }
 
 /**

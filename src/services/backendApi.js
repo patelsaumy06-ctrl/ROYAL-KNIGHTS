@@ -223,6 +223,12 @@ export const backendApi = {
     clearStoredToken();
   },
 
+  /** Inject an externally-obtained token (e.g. Firebase ID token). */
+  setToken(token) {
+    _token = token;
+    storeToken(_token);
+  },
+
   /** Check if backend auth is active. */
   hasToken() {
     return !!_token;

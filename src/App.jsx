@@ -9,6 +9,7 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { GOOGLE_MAPS_API_KEY } from './services/maps';
 import { calculateRiskScore } from './core';
 import { buildIntelligenceSnapshot } from './services/intelligence';
+import { fetchWeather, FALLBACK_WEATHER, DEFAULT_WEATHER_COORDS } from './services/weather';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import QuickActionMenu from './components/QuickActionMenu';
@@ -38,6 +39,8 @@ export default function App() {
   const [manualEmergencyPauseUntil, setManualEmergencyPauseUntil] = useState(0);
   const [realtimeSimEnabled, setRealtimeSimEnabled] = useState(false);
   const [riskModel, setRiskModel] = useState({ score: 0, level: 'stable', autoEmergency: false });
+  const [realWeather, setRealWeather] = useState(FALLBACK_WEATHER);
+  const [weatherLoading, setWeatherLoading] = useState(false);
   const [volunteers, setVolunteers] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isMobile, isTablet, isDesktop } = useMediaQuery();
@@ -92,15 +95,20 @@ export default function App() {
       .join(' ')
       .toLowerCase();
     const keywords = ['flood', 'dengue', 'fire', 'rescue', 'medical'].filter((k) => keywordPool.includes(k));
-    const weatherMock = {
-      rainfallMm: 24 + urgent.length * 6,
-      windKph: 18 + urgent.length * 4,
-      temperatureC: 34 + (unresolved.length > 8 ? 4 : 0),
-    };
+    setWeatherLoading(true);
+    let weatherForRisk = realWeather || FALLBACK_WEATHER;
+    try {
+      const nextWeather = await fetchWeather(DEFAULT_WEATHER_COORDS.lat, DEFAULT_WEATHER_COORDS.lon);
+      weatherForRisk = nextWeather || FALLBACK_WEATHER;
+      setRealWeather(weatherForRisk);
+    } finally {
+      setWeatherLoading(false);
+    }
+
     const model = calculateRiskScore({
       reportCount: unresolved.length + (notifs || []).filter((n) => n.type === 'urgent').length,
       keywords,
-      weather: weatherMock,
+      weather: weatherForRisk,
     });
     setRiskModel(model);
     const isManualPauseActive = Date.now() < manualEmergencyPauseUntil;
@@ -115,7 +123,7 @@ export default function App() {
       confidence: Math.max(55, Math.min(99, Math.round(60 + model.score * 0.35 + vols.filter(v => v.available).length))),
       riskScore: model.score,
     });
-  }, [liveNeeds, liveNotifications, manualEmergencyPauseUntil, volunteers]);
+  }, [liveNeeds, liveNotifications, manualEmergencyPauseUntil, volunteers, realWeather]);
 
   useEffect(() => {
     if (!ngo) return;
@@ -192,9 +200,15 @@ export default function App() {
 
   const handleLogin = async (account) => {
     api.setAccount(account.email);
-    // Authenticate with backend to obtain JWT for secure API calls
+    // Authenticate with backend:
+    // 1. Try Firebase ID token first (works for all Firebase users)
+    // 2. Fall back to password login (works for hardcoded demo accounts)
     try {
-      await backendApi.login(account.email, account.password);
+      if (account.firebaseIdToken) {
+        backendApi.setToken(account.firebaseIdToken);
+      } else if (account.password) {
+        await backendApi.login(account.email, account.password);
+      }
     } catch (e) {
       console.warn('Backend auth unavailable — AI features may be limited:', e.message);
     }
@@ -246,7 +260,7 @@ export default function App() {
     map: <Map onNav={handleNav} initialTask={navCtx} emergency={emergency} riskScore={riskModel.score} needsOverride={effectiveNeeds} ngoEmail={ngo?.email} />,
     communityNeeds: <CommunityNeeds onNav={handleNav} intelligence={intelligence} />,
     pipeline: <CrisisPipeline onNav={handleNav} intelligence={intelligence} />,
-    upload: <Upload />,
+    upload: <Upload ngoEmail={ngo?.email} onImportSuccess={() => evaluateEmergency()} />,
     volunteers: <Volunteers initialTask={navCtx} needsOverride={effectiveNeeds} intelligence={intelligence} smartMode={smartMode} />,
     tasks: <Tasks onNav={handleNav} taskDraft={navCtx} onConsumeTaskDraft={clearNavCtx} emergency={emergency} prioritizedTasks={intelligence.prioritizedTasks} />,
     reports: <Reports intelligence={intelligence} />,
@@ -320,7 +334,7 @@ export default function App() {
                 if (act === 'smartAssign') handleNav('volunteers', { smartAssign: true });
               }}
             />
-            <AIAssistant emergency={emergency} riskScore={riskModel.score} aiSnapshot={aiSnapshot} isMobile={isMobile} />
+            <AIAssistant emergency={emergency} riskScore={riskModel.score} aiSnapshot={aiSnapshot} isMobile={isMobile} weatherLoading={weatherLoading} />
             {!isOnline && (
               <div style={{ position: 'fixed', right: isMobile ? 12 : 24, bottom: isMobile ? 12 : 24, padding: '8px 12px', borderRadius: 10, background: 'rgba(180,83,9,0.95)', color: '#fff', fontSize: 12, zIndex: 1200 }}>
                 Offline mode: showing cached crisis data
@@ -341,3 +355,5 @@ export default function App() {
     </APIProvider>
   );
 }
+
+

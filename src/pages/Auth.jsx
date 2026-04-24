@@ -63,10 +63,15 @@ function SignIn({ onLogin, onGoSignUp }) {
       const snap = await getDoc(doc(db, "ngos", user.email));
       const profile = snap.exists() ? snap.data() : {};
 
+      // Get Firebase ID token so App.jsx can use it as backend bearer token
+      const firebaseIdToken = await user.getIdToken();
+
       onLogin({
         email: user.email,
         name:  profile.name  || user.email,
         type:  profile.type  || "Relief NGO",
+        password,         // works for demo accounts whose passwords match server/routes/auth.js
+        firebaseIdToken,  // fallback for Firebase-registered users
       });
     } catch (err) {
       setError(friendlyError(err.code));

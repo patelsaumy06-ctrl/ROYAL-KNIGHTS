@@ -3,27 +3,32 @@ import { G, css } from '../styles/theme';
 import { api } from '../services/api';
 import { backendApi } from '../services/backendApi';
 import { callGeminiWithFile, readFileAsText, readFileAsBase64, priorityStyle } from '../services/gemini';
+import { createIncident, deleteIncident } from '../services/firestoreRealtime';
 import Tag from '../components/Tag';
 import Spinner from '../components/Spinner';
 
-export default function Upload() {
-  const [uploads, setUploads]           = useState(null);
-  const [dragging, setDragging]         = useState(false);
-  const [processing, setProcessing]     = useState(false);
-  const [currentFile, setCurrentFile]   = useState(null);
-  const [steps, setSteps]               = useState([]);      // Processing log
-  const [result, setResult]             = useState(null);    // Gemini parsed result
-  const [error, setError]               = useState(null);
-  const [confirmed, setConfirmed]       = useState(false);
-  const [reportText, setReportText]     = useState('');     // Raw pasted report text
-  const [inputMode, setInputMode]       = useState('file'); // 'file' | 'text'
-  const fileInputRef                    = useRef(null);
- 
+export default function Upload({ ngoEmail, onImportSuccess }) {
+  const [uploads, setUploads] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [currentFile, setCurrentFile] = useState(null);
+  const [steps, setSteps] = useState([]);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [inputMode, setInputMode] = useState('file');
+  const [toast, setToast] = useState(null);   // { msg, type, ids }
+  const [lastBatchIds, setLastBatchIds] = useState([]);     // for undo
+  const fileInputRef = useRef(null);
+  const importedHashRef = useRef(new Set()); // de-dup
+
   useEffect(() => { api.getUploads().then(setUploads); }, []);
- 
+
   const addStep = (text, status = "done") =>
     setSteps(s => [...s, { text, status, time: new Date().toLocaleTimeString() }]);
- 
+
   // ── Core processing pipeline ─────────────────────────────────────────────
   const processFile = async (file) => {
     setProcessing(true);
@@ -32,17 +37,17 @@ export default function Upload() {
     setError(null);
     setConfirmed(false);
     setSteps([]);
-  
+
     try {
       // STEP 1: Detect file type
       addStep(`Reading "${file.name}" (${(file.size / 1024).toFixed(1)} KB)...`);
-        
-      const isText  = file.type.includes("csv") || file.type.includes("text") || file.name.endsWith(".csv") || file.name.endsWith(".txt") || file.name.endsWith(".xlsx");
+
+      const isText = file.type.includes("csv") || file.type.includes("text") || file.name.endsWith(".csv") || file.name.endsWith(".txt") || file.name.endsWith(".xlsx");
       const isImage = file.type.includes("image");
-      const isPDF   = file.type.includes("pdf");
-  
+      const isPDF = file.type.includes("pdf");
+
       let fileContent, fileType;
-  
+
       if (isText) {
         fileContent = await readFileAsText(file);
         fileType = "text";
@@ -57,20 +62,20 @@ export default function Upload() {
         fileType = "text";
         addStep(`Reading as plain text (unknown format)`);
       }
-  
+
       // STEP 2: Send to secure backend AI proxy
       addStep("Sending to AI analysis engine...", "loading");
-  
+
       const parsed = await callGeminiWithFile(fileContent, fileType, file.name);
-  
+
       setSteps(s => s.map((x, i) => i === s.length - 1 ? { ...x, status: "done" } : x));
-  
+
       // STEP 3: Show results
       addStep(`Gemini extracted ${parsed.needs?.length || 0} community needs`);
       addStep(`AI generated ${parsed.aiInsights?.length || 0} priority insights`);
-        
+
       setResult(parsed);
-  
+
     } catch (err) {
       console.warn("Gemini API error, falling back to local demo generator:", err.message);
       const demoResult = generateDemoResult(file.name, fileContent);
@@ -79,10 +84,10 @@ export default function Upload() {
       addStep(`Fallback used: generated ${demoResult.aiInsights.length} priority insights`);
       setResult(demoResult);
     }
-      
+
     setProcessing(false);
   };
- 
+
   // ── LLM-powered report analysis pipeline ──────────────────────────────
   // Takes raw pasted text → sends to backend → Claude/Gemini extracts structured data
   const processReport = async (text) => {
@@ -128,10 +133,10 @@ export default function Upload() {
         summary: pipeline.report?.summary || 'Field report analyzed by AI.',
         needs: rawNeeds.map(n => {
           // Support both new { category, priority, peopleAffected, description } and legacy { type, priority }
-          const category    = n.category || n.type || 'other';
+          const category = n.category || n.type || 'other';
           const priorityRaw = n.priority || 'medium';
           // Normalize priority names: 'critical'→'urgent', others pass through
-          const priority    = priorityRaw === 'critical' ? 'urgent' : priorityRaw;
+          const priority = priorityRaw === 'critical' ? 'urgent' : priorityRaw;
           const peopleAffected = typeof n.peopleAffected === 'number'
             ? n.peopleAffected
             : (pipeline.report?.affected_people_estimate || 0);
@@ -177,55 +182,109 @@ export default function Upload() {
     setProcessing(false);
   };
 
-
-  // ── Confirm: push extracted needs into DB ────────────────────────────────
-  const confirmAndSave = async () => {
-    if (!result) return;
- 
-    const currentNeeds = await api.getNeeds();
-    const nextId = Math.max(...currentNeeds.map(n => n.id), 0) + 1;
- 
-    const today = new Date();
-    const newNeeds = result.needs.map((n, i) => ({
-      id: nextId + i,
-      location: result.village || "Unknown Village",
-      category: n.category,
-      region: result.region || "Gujarat",
-      priority: n.priority,
-      volunteers: n.volunteersNeeded || 5,
-      assigned: 0,
-      status: "open",
-      deadline: n.deadline || new Date(today.getTime() + 7 * 86400000).toISOString().split("T")[0],
-    }));
- 
-    const currentUploads = await api.getUploads();
-    const newUpload = {
-      id: currentUploads.length + 1,
-      file: currentFile,
-      village: result.village || "Unknown",
-      issue: result.needs[0]?.category || "Multiple",
-      records: result.totalRecords || result.needs.length,
-      date: `Today ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-      status: "done",
-    };
- 
-    const currentNotifs = await api.getNotifications();
-    const newNotification = {
-      id: currentNotifs.length + 1,
-      type: "upload",
-      title: `New Upload: ${currentFile}`,
-      body: `${result.totalRecords || result.needs.length} records processed. ${result.needs.filter(n => n.priority === "urgent").length} urgent needs identified by AI.`,
-      time: "Just now",
-      read: false,
-    };
- 
-    // Save to Firestore
-    const updatedUploads = await api.saveUploadNeeds(newNeeds, newUpload, newNotification);
-    
-    setUploads(updatedUploads);
-    setConfirmed(true);
+  // ── Toast helper ────────────────────────────────────────────────────────────
+  const showToast = (msg, type = 'success', ids = []) => {
+    setToast({ msg, type, ids });
+    setTimeout(() => setToast(null), 5000);
   };
- 
+
+  // ── Confirm: push extracted needs into Firestore incidents subcollection ────
+  const confirmAndSave = async () => {
+    if (!result || importing) return;
+    if (!ngoEmail) {
+      showToast('No NGO account detected — please log in first.', 'error');
+      return;
+    }
+
+    setImporting(true);
+    const today = new Date();
+    const batchTag = `batch_${Date.now()}`;
+    const savedIds = [];
+    const skipped = [];
+
+    try {
+      for (const n of result.needs) {
+        // De-duplicate: same category+description within this session
+        const hash = `${n.category}|${(n.description || '').slice(0, 60)}`;
+        if (importedHashRef.current.has(hash)) { skipped.push(n.category); continue; }
+
+        const deadlineDays = n.priority === 'urgent' ? 3 : n.priority === 'high' ? 5 : n.priority === 'medium' ? 7 : 14;
+        const needPayload = {
+          category: n.category,
+          location: result.village || 'Unknown Village',
+          region: result.region || 'Gujarat',
+          priority: ['urgent', 'medium', 'low'].includes(n.priority) ? n.priority
+            : (n.priority === 'high' || n.priority === 'critical') ? 'urgent' : 'medium',
+          volunteers: n.volunteersNeeded || 5,
+          assigned: 0,
+          status: 'open',
+          deadline: n.deadline || new Date(today.getTime() + deadlineDays * 86400000).toISOString().split('T')[0],
+          description: n.description || '',
+          affectedPeople: n.affectedPeople || 0,
+          aiConfidence: n.confidence ?? null,
+          batchId: batchTag,
+          source: 'upload',
+        };
+
+        const docId = await createIncident(ngoEmail, needPayload);
+        savedIds.push(docId);
+        importedHashRef.current.add(hash);
+      }
+
+      // Record upload history entry
+      const currentUploads = await api.getUploads();
+      const newUpload = {
+        id: currentUploads.length + 1,
+        file: currentFile,
+        village: result.village || 'Unknown',
+        issue: result.needs[0]?.category || 'Multiple',
+        records: result.totalRecords || result.needs.length,
+        date: `Today ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        status: 'done',
+      };
+      const currentNotifs = await api.getNotifications();
+      const newNotification = {
+        id: currentNotifs.length + 1,
+        type: 'upload',
+        title: `New Upload: ${currentFile}`,
+        body: `${savedIds.length} needs imported. ${result.needs.filter(n => n.priority === 'urgent').length} urgent.`,
+        time: 'Just now',
+        read: false,
+      };
+      const updatedUploads = await api.saveUploadNeeds([], newUpload, newNotification);
+      setUploads(updatedUploads);
+
+      setLastBatchIds(savedIds);
+      setConfirmed(true);
+      onImportSuccess?.();
+
+      const skipMsg = skipped.length ? ` (${skipped.length} duplicate${skipped.length > 1 ? 's' : ''} skipped)` : '';
+      showToast(`✅ ${savedIds.length} need${savedIds.length !== 1 ? 's' : ''} imported to Community Needs${skipMsg}`, 'success', savedIds);
+    } catch (err) {
+      console.error('Import failed:', err);
+      showToast(`❌ Import failed: ${err.message}`, 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // ── Undo last import batch ───────────────────────────────────────────────────
+  const undoImport = async () => {
+    if (!lastBatchIds.length || !ngoEmail) return;
+    try {
+      await Promise.all(lastBatchIds.map(id => deleteIncident(ngoEmail, id)));
+      lastBatchIds.forEach(() => { }); // clear hash is harder without storing — reset all
+      importedHashRef.current.clear();
+      setLastBatchIds([]);
+      setConfirmed(false);
+      setResult(null);
+      setSteps([]);
+      showToast('↩️ Import undone — needs removed from Community Needs', 'info');
+    } catch (err) {
+      showToast(`❌ Undo failed: ${err.message}`, 'error');
+    }
+  };
+
   // ── Drag & Drop + click to browse ───────────────────────────────────────
   const handleDrop = (e) => {
     e.preventDefault();
@@ -233,12 +292,12 @@ export default function Upload() {
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
   };
- 
+
   const handleFileInput = (e) => {
     const file = e.target.files[0];
     if (file) processFile(file);
   };
- 
+
   // ── Demo result generator (used when no API key is set) ──────────────────
   const generateDemoResult = (fileName, content) => {
     const rowCount = content ? content.split("\n").length : 50;
@@ -280,7 +339,7 @@ export default function Upload() {
       ],
     };
   };
- 
+
   const methods = [
     { icon: "📤", title: "Upload Survey", sub: "CSV, Excel, PDF", bg: "linear-gradient(135deg, #EFF6FF, #DBEAFE)" },
     { icon: "🔍", title: "Scan Paper Form", sub: "Camera · OCR", bg: "linear-gradient(135deg, #F0FDF4, #DCFCE7)" },
@@ -305,7 +364,7 @@ export default function Upload() {
         .table-row:hover { background: rgba(255,255,255,0.8); transform: scale(1.005) translateX(4px); box-shadow: -4px 4px 10px rgba(0,0,0,0.02); border-radius: 8px; border-bottom-color: transparent; z-index: 10; position: relative; }
         .glass-panel { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: ${G.shadowLg}; border-radius: 24px; overflow: hidden; }
       `}</style>
-      
+
       {/* Header */}
       <div style={{ marginBottom: 40, animation: "slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <h1 style={{ fontSize: 36, fontWeight: 800, color: G.t1, marginBottom: 12, letterSpacing: "-0.03em", background: `linear-gradient(135deg, ${G.t1}, ${G.blueDark})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Data Ingestion</h1>
@@ -403,47 +462,47 @@ export default function Upload() {
 
       {/* Drop zone — only shown in file mode */}
       {inputMode === 'file' && (
-      <div
-        className="drop-zone glass-panel"
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        style={{
-          border: `2px dashed ${dragging ? G.blue : "rgba(203, 213, 225, 0.8)"}`,
-          padding: "70px 40px", textAlign: "center", cursor: "pointer",
-          marginBottom: 40, 
-          background: dragging ? "rgba(239, 246, 255, 0.8)" : "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%)", 
-          boxShadow: dragging ? `0 0 0 4px ${G.blueLight}, ${G.shadowXl}` : G.shadowLg,
-          animation: dragging ? "pulseGlow 2s infinite" : "none",
-        }}>
-        <div style={{ width: 80, height: 80, background: "linear-gradient(135deg, #EFF6FF, #DBEAFE)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, margin: "0 auto 24px", boxShadow: "0 10px 25px rgba(37,99,235,0.15)", filter: dragging ? "drop-shadow(0 0 10px rgba(37,99,235,0.3))" : "none", transition: "all 0.3s" }}>{dragging ? "📥" : "📁"}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: G.t1, marginBottom: 12, letterSpacing: "-0.01em" }}>
-          {processing ? `Analyzing "${currentFile}"...` : "Drag & Drop files here"}
+        <div
+          className="drop-zone glass-panel"
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            border: `2px dashed ${dragging ? G.blue : "rgba(203, 213, 225, 0.8)"}`,
+            padding: "70px 40px", textAlign: "center", cursor: "pointer",
+            marginBottom: 40,
+            background: dragging ? "rgba(239, 246, 255, 0.8)" : "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%)",
+            boxShadow: dragging ? `0 0 0 4px ${G.blueLight}, ${G.shadowXl}` : G.shadowLg,
+            animation: dragging ? "pulseGlow 2s infinite" : "none",
+          }}>
+          <div style={{ width: 80, height: 80, background: "linear-gradient(135deg, #EFF6FF, #DBEAFE)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, margin: "0 auto 24px", boxShadow: "0 10px 25px rgba(37,99,235,0.15)", filter: dragging ? "drop-shadow(0 0 10px rgba(37,99,235,0.3))" : "none", transition: "all 0.3s" }}>{dragging ? "📥" : "📁"}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: G.t1, marginBottom: 12, letterSpacing: "-0.01em" }}>
+            {processing ? `Analyzing "${currentFile}"...` : "Drag & Drop files here"}
+          </div>
+          <div style={{ fontSize: 15, color: G.t2, fontWeight: 500, marginBottom: dragging ? 0 : 20 }}>
+            {dragging ? "Release to drop" : "or click to browse from your computer"}
+          </div>
+          {!dragging && <div style={{ fontSize: 13, color: G.t3, fontWeight: 600, display: "flex", justifyContent: "center", gap: 16 }}>
+            <span>📄 CSV, Excel, PDF</span>
+            <span>🖼️ JPG, PNG</span>
+            <span>⚡ Max 50MB</span>
+          </div>}
         </div>
-        <div style={{ fontSize: 15, color: G.t2, fontWeight: 500, marginBottom: dragging ? 0 : 20 }}>
-          {dragging ? "Release to drop" : "or click to browse from your computer"}
-        </div>
-        {!dragging && <div style={{ fontSize: 13, color: G.t3, fontWeight: 600, display: "flex", justifyContent: "center", gap: 16 }}>
-          <span>📄 CSV, Excel, PDF</span>
-          <span>🖼️ JPG, PNG</span>
-          <span>⚡ Max 50MB</span>
-        </div>}
-      </div>
       )}
 
       {/* Processing steps log */}
       {steps.length > 0 && (
         <div className="glass-panel" style={{ padding: 32, marginBottom: 40, animation: "fadeIn 0.4s ease-out" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: G.t1, marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
-            {processing ? <div style={{width: 20, height: 20, borderRadius: "50%", border: `3px solid ${G.blueLight}`, borderTopColor: G.blue, animation: "spin 1s linear infinite"}} /> : error ? "❌" : "✅"}
+            {processing ? <div style={{ width: 20, height: 20, borderRadius: "50%", border: `3px solid ${G.blueLight}`, borderTopColor: G.blue, animation: "spin 1s linear infinite" }} /> : error ? "❌" : "✅"}
             {processing ? "AI Analysis in Progress..." : error ? "Analysis Error" : "Analysis Complete"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {steps.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 16, alignItems: "flex-start", animation: `slideIn 0.3s ease-out ${i * 0.1}s both` }}>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: s.status === "error" ? G.redLight : s.status === "done" ? G.greenLight : G.blueLight, color: s.status === "error" ? G.red : s.status === "done" ? G.green : G.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0, boxShadow: "0 2px 5px rgba(0,0,0,0.05)" }}>
-                  {s.status === "done" ? "✓" : s.status === "error" ? "✗" : <div style={{width: 6, height: 6, borderRadius: "50%", background: "currentColor", animation: "pulseGlow 1s infinite"}} />}
+                  {s.status === "done" ? "✓" : s.status === "error" ? "✗" : <div style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", animation: "pulseGlow 1s infinite" }} />}
                 </div>
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: s.status === "error" ? G.redDark : G.t1 }}>{s.text}</span>
@@ -460,21 +519,21 @@ export default function Upload() {
         <div className="glass-panel" style={{ marginBottom: 40, animation: "fadeIn 0.5s ease-out" }}>
           {/* Header */}
           <div style={{ background: "linear-gradient(135deg, rgba(239, 246, 255, 0.8), rgba(219, 234, 254, 0.6))", padding: "30px 32px", borderBottom: `1px solid rgba(255,255,255,0.5)`, position: "relative", overflow: "hidden" }}>
-             <div style={{ position: "absolute", top: "-50%", right: "-10%", width: 300, height: 300, background: "radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%)", opacity: 0.5, pointerEvents: "none" }} />
-             <div style={{ position: "relative", zIndex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                  <span style={{ padding: "6px 12px", background: "rgba(37, 99, 235, 0.1)", color: G.blueDark, borderRadius: 100, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
-                    ✨ Gemini 1.5 Pro AI
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: G.t2 }}>{result.village}</span>
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: G.t1, marginBottom: 8, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{result.summary}</div>
-                <div style={{ display: "flex", gap: 16, fontSize: 13, color: G.t2, fontWeight: 600 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>📊 {result.totalRecords} records</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>🗺️ {result.region} District</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>🎯 {result.needs.length} needs identified</span>
-                </div>
-             </div>
+            <div style={{ position: "absolute", top: "-50%", right: "-10%", width: 300, height: 300, background: "radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%)", opacity: 0.5, pointerEvents: "none" }} />
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <span style={{ padding: "6px 12px", background: "rgba(37, 99, 235, 0.1)", color: G.blueDark, borderRadius: 100, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
+                  ✨ Gemini 1.5 Pro AI
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: G.t2 }}>{result.village}</span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: G.t1, marginBottom: 8, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{result.summary}</div>
+              <div style={{ display: "flex", gap: 16, fontSize: 13, color: G.t2, fontWeight: 600 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>📊 {result.totalRecords} records</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>🗺️ {result.region} District</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>🎯 {result.needs.length} needs identified</span>
+              </div>
+            </div>
           </div>
 
           {/* Extracted needs */}
@@ -571,8 +630,16 @@ export default function Upload() {
             <button style={{ ...css.btn("secondary", false), background: "rgba(255,255,255,0.8)", backdropFilter: "blur(4px)" }} onClick={() => { setResult(null); setSteps([]); }}>
               Discard Plan
             </button>
-            <button style={{ ...css.btn("primary", false), transform: "translateY(0)", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"} onClick={confirmAndSave}>
-              ✨ Import {result.needs.length} Needs to Dashboard
+            <button
+              disabled={importing}
+              style={{ ...css.btn("primary", false), opacity: importing ? 0.7 : 1, cursor: importing ? 'not-allowed' : 'pointer', minWidth: 240 }}
+              onClick={confirmAndSave}
+            >
+              {importing ? (
+                <><span style={{ width: 16, height: 16, border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} /> Importing…</>
+              ) : (
+                <>✨ Import {result.needs.length} Needs to Dashboard</>
+              )}
             </button>
           </div>
         </div>
@@ -581,18 +648,23 @@ export default function Upload() {
       {/* Success state */}
       {confirmed && (
         <div className="glass-panel" style={{ padding: "40px 32px", marginBottom: 40, textAlign: "center", background: "linear-gradient(135deg, rgba(236, 253, 245, 0.9), rgba(209, 250, 229, 0.7))", borderColor: "#A7F3D0", animation: "fadeIn 0.5s ease-out" }}>
-          <div style={{ width: 80, height: 80, background: G.surface, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, margin: "0 auto 20px", boxShadow: "0 10px 25px rgba(16, 185, 129, 0.2)", animation: "pulseGlow 2s infinite" }}>✨</div>
+          <div style={{ width: 80, height: 80, background: G.surface, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, margin: "0 auto 20px", boxShadow: "0 10px 25px rgba(16, 185, 129, 0.2)", animation: "pulseGlow 2s infinite" }}>✅</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: G.greenDark, marginBottom: 8, letterSpacing: "-0.01em" }}>
-            {result?.needs.length} Needs Successfully Imported!
+            {lastBatchIds.length} Need{lastBatchIds.length !== 1 ? 's' : ''} Successfully Imported!
           </div>
-          <div style={{ fontSize: 15, color: G.green, fontWeight: 600, marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
-            The community needs have been synced to your dashboard and are ready for volunteer assignment.
+          <div style={{ fontSize: 15, color: G.green, fontWeight: 600, marginBottom: 24, maxWidth: 440, margin: "0 auto 28px" }}>
+            Community Needs updated in real-time. Volunteers can now be assigned.
           </div>
-          <button
-            style={css.btn("green", false)}
-            onClick={() => { setResult(null); setSteps([]); setConfirmed(false); setCurrentFile(null); }}>
-            Upload Another File
-          </button>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button style={css.btn("secondary", true)} onClick={undoImport}>
+              ↩️ Undo Import
+            </button>
+            <button
+              style={css.btn("green", false)}
+              onClick={() => { setResult(null); setSteps([]); setConfirmed(false); setCurrentFile(null); }}>
+              Upload Another File
+            </button>
+          </div>
         </div>
       )}
 
@@ -641,6 +713,37 @@ export default function Upload() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: 40,
+          right: 40,
+          zIndex: 9999,
+          background: toast.type === 'error' ? G.redDark : toast.type === 'info' ? G.blueDark : G.greenDark,
+          color: '#fff',
+          padding: '16px 24px',
+          borderRadius: 16,
+          boxShadow: G.shadowXl,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          fontSize: 14,
+          fontWeight: 700,
+          animation: 'slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
+          <style>{`
+            @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+          `}</style>
+          <span>{toast.msg}</span>
+          <button
+            onClick={() => setToast(null)}
+            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 10 }}
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>
