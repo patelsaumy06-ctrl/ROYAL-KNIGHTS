@@ -1,19 +1,23 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  base: '/',
-  server: {
-    proxy: {
-      // Forward API calls to the backend server in development.
-      // In production, deploy behind a reverse proxy (nginx, Cloudflare, etc.)
-      '/api': {
-        target: 'http://localhost:8787',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    plugins: [react(), tailwindcss()],
+    base: '/',
+    define: {
+      'process.env': env
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8787',
+          changeOrigin: true,
+        },
       },
     },
-  },
+  }
 })

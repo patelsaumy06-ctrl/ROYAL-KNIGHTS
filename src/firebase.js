@@ -8,7 +8,7 @@ import { getAnalytics } from "firebase/analytics";
 
 // Keep runtime configuration in env vars so keys/domains are not hardcoded in source control.
 const firebaseConfig = {
-  apiKey: "AIzaSyDqvL_2Y4FLuhJEnravHDbopjlVslfmaV0",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_AUTH_DOMAIN,
   databaseURL: import.meta.env.VITE_DATABASE_URL,
   projectId: import.meta.env.VITE_PROJECT_ID,
