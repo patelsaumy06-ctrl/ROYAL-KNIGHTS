@@ -8,9 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     base: '/',
-    define: {
-      'process.env': env
-    },
+
     server: {
       proxy: {
         '/api': {
