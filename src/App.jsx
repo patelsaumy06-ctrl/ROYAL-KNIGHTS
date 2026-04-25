@@ -95,20 +95,10 @@ export default function App() {
       .join(' ')
       .toLowerCase();
     const keywords = ['flood', 'dengue', 'fire', 'rescue', 'medical'].filter((k) => keywordPool.includes(k));
-    setWeatherLoading(true);
-    let weatherForRisk = realWeather || FALLBACK_WEATHER;
-    try {
-      const nextWeather = await fetchWeather(DEFAULT_WEATHER_COORDS.lat, DEFAULT_WEATHER_COORDS.lon);
-      weatherForRisk = nextWeather || FALLBACK_WEATHER;
-      setRealWeather(weatherForRisk);
-    } finally {
-      setWeatherLoading(false);
-    }
-
     const model = calculateRiskScore({
       reportCount: unresolved.length + (notifs || []).filter((n) => n.type === 'urgent').length,
       keywords,
-      weather: weatherForRisk,
+      weather: realWeather || FALLBACK_WEATHER,
     });
     setRiskModel(model);
     const isManualPauseActive = Date.now() < manualEmergencyPauseUntil;
@@ -124,6 +114,16 @@ export default function App() {
       riskScore: model.score,
     });
   }, [liveNeeds, liveNotifications, manualEmergencyPauseUntil, volunteers, realWeather]);
+
+  useEffect(() => {
+    setWeatherLoading(true);
+    fetchWeather(DEFAULT_WEATHER_COORDS.lat, DEFAULT_WEATHER_COORDS.lon)
+      .then((w) => {
+        if (w) setRealWeather(w);
+      })
+      .catch((err) => console.error('Weather fetch failed', err))
+      .finally(() => setWeatherLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!ngo) return;
