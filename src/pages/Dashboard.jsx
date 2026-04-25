@@ -50,6 +50,8 @@ export default function Dashboard({onNav, emergency, onDeactivateEmergency, risk
   const [loading,setLoading] = useState(true);
   const { isMobile, isTablet, isDesktop } = useMediaQuery();
 
+  const needsKey = JSON.stringify(needsOverride ?? []);
+
   useEffect(()=>{
     const load = async () => {
       if (Array.isArray(needsOverride) && needsOverride.length > 0) {
@@ -69,7 +71,8 @@ export default function Dashboard({onNav, emergency, onDeactivateEmergency, risk
     };
 
     load();
-  },[needsOverride]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[needsKey]);
 
   const safeNeeds = Array.isArray(needs) ? needs : [];
   const safeStats = stats || { totalNeeds: 0, volunteers: 0, resolved: 0, urgent: 0 };

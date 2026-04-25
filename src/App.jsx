@@ -168,6 +168,8 @@ export default function App() {
   });
 
   const effectiveNeeds = liveNeeds.length ? liveNeeds : cachedNeeds;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableNeeds = useMemo(() => effectiveNeeds, [JSON.stringify(effectiveNeeds)]);
 
   useEffect(() => {
     if (!ngo) {
@@ -191,12 +193,12 @@ export default function App() {
   const intelligence = useMemo(() => {
     if (!ngo) return defaultIntelligence;
     return buildIntelligenceSnapshot({
-      needs: effectiveNeeds,
+      needs: stableNeeds,
       notifications: liveNotifications,
       volunteers,
       smartMode,
     });
-  }, [ngo, effectiveNeeds, liveNotifications, volunteers, smartMode]);
+  }, [ngo, stableNeeds, liveNotifications, volunteers, smartMode]);
 
   const handleLogin = async (account) => {
     api.setAccount(account.email);
@@ -255,7 +257,7 @@ export default function App() {
 
   const pages = {
     landing: <Landing onNav={handleNav} />,
-    dashboard: <Dashboard onNav={handleNav} emergency={emergency} onDeactivateEmergency={handleDeactivateEmergency} riskScore={riskModel.score} aiInsight={aiSnapshot.leadMessage} needsOverride={effectiveNeeds} />,
+    dashboard: <Dashboard onNav={handleNav} emergency={emergency} onDeactivateEmergency={handleDeactivateEmergency} riskScore={riskModel.score} aiInsight={aiSnapshot.leadMessage} needsOverride={stableNeeds} />,
     insights: <Insights onNav={handleNav} onEmergencyActivated={evaluateEmergency} intelligence={intelligence} smartMode={smartMode} />,
     map: <Map onNav={handleNav} initialTask={navCtx} emergency={emergency} riskScore={riskModel.score} needsOverride={effectiveNeeds} ngoEmail={ngo?.email} />,
     communityNeeds: <CommunityNeeds onNav={handleNav} intelligence={intelligence} />,
