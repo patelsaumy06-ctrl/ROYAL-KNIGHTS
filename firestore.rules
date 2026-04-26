@@ -1,8 +1,54 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Volunteers ───────────────────────────────────────────────
+    // Any signed-in user can read volunteers (for matching).
+    // Only the owner can write their own profile.
+    match /volunteers/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update, delete: if isOwner(userId);
+    }
+
+    // ── Tasks / Needs ─────────────────────────────────────────────
+    // Any signed-in user can read tasks.
+    // Only authenticated NGO users can create/update/delete tasks.
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        resource.data.createdBy == request.auth.uid;
+    }
+
+    // ── Reports / Survey data ─────────────────────────────────────
+    // Read by any signed-in user; write only by owner.
+    match /reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        resource.data.createdBy == request.auth.uid;
+    }
+
+    // ── Matches ───────────────────────────────────────────────────
+    // Matches are created server-side and readable by involved parties.
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow write: if false; // server-side only via Admin SDK
+    }
+
+    // ── Default: deny everything else ────────────────────────────
     match /{document=**} {
-      allow read, write: if true; 
+      allow read, write: if false;
     }
   }
 }
