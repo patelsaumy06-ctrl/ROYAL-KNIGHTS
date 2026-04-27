@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, Send, Bot, User, Brain } from 'lucide-react';
+import { Sparkles, X, Send, Bot, User, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { G } from '../styles/theme';
 import { ASSISTANT_MODES, buildModeAwareFallback } from '../services/assistantModes';
 
 export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMobile = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [messages, setMessages] = useState([{ role: 'bot', content: "Hello! I'm your Needlink AI assistant. How can I help you optimize crisis response today?" }]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -27,6 +28,108 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
     });
   }, [aiSnapshot]);
 
+  // Cache last known good data for recovery suggestions
+  const lastKnownDataRef = useRef({ stats: null, urgentNeeds: null });
+
+  // ── FALLBACK GUIDANCE ─────────────────────────────────────────
+  // Operational guidance for field teams when data is unavailable.
+  const FALLBACK_GUIDANCE = [
+    '• Prioritize high-risk zones first — deploy scouts for ground-truth',
+    '• Deploy volunteers based on skill match + geographic proximity',
+    '• Keep at least one reserve team uncommitted for escalation',
+    '• Ensure communication channels (radio/WhatsApp) remain active',
+    '• Cross-check field updates every 30 min for situational awareness',
+  ].join('\n');
+
+  // ── DATA-FETCH HELPERS ────────────────────────────────────────
+  // Safely fetch JSON from backend; returns null on any failure.
+  const safeFetch = async (url) => {
+    let authToken = null;
+    try { authToken = sessionStorage.getItem('Needlink_api_token'); } catch { /* noop */ }
+
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+    });
+
+    const text = await res.text();
+    if (!text || !text.trim()) return null;
+
+    try {
+      const json = JSON.parse(text);
+      if (!res.ok || json.success === false) return null;
+      return json;
+    } catch {
+      return null;
+    }
+  };
+
+  // ── FORMAT: STATS SUMMARY ─────────────────────────────────────
+  const formatStatsSummary = (statsData, urgentData) => {
+    const s = statsData?.data || statsData;
+    const urgentList = Array.isArray(urgentData?.data) ? urgentData.data : [];
+
+    const totalAffected = s?.totalNeeds ?? 0;
+    const urgentCount = s?.urgent ?? 0;
+    const volunteers = s?.volunteers ?? 0;
+    const resolved = s?.resolved ?? 0;
+
+    // Derive high-risk zones from urgent needs
+    const zoneMap = {};
+    urgentList.forEach(n => {
+      const zone = n.region || n.location || 'Unknown';
+      zoneMap[zone] = (zoneMap[zone] || 0) + 1;
+    });
+    const highRiskZones = Object.entries(zoneMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([zone, count]) => `  → ${zone} (${count} incident${count > 1 ? 's' : ''})`)
+      .join('\n');
+
+    return [
+      '📊 STATS SUMMARY',
+      '─────────────────────────────',
+      `▸ Total affected population/needs: ${totalAffected}`,
+      `▸ Urgent needs count: ${urgentCount}`,
+      `▸ Available volunteers/resources: ${volunteers}`,
+      `▸ Resolved to date: ${resolved}`,
+      '',
+      highRiskZones
+        ? `🔴 High-Risk Zones:\n${highRiskZones}`
+        : '🟢 No high-risk zones currently flagged',
+      '',
+      `⏱ Last updated: ${new Date().toLocaleTimeString()}`,
+    ].join('\n');
+  };
+
+  // ── FORMAT: URGENT NEEDS ──────────────────────────────────────
+  const formatUrgentNeeds = (urgentData) => {
+    const items = Array.isArray(urgentData?.data) ? urgentData.data : [];
+
+    if (items.length === 0) {
+      return '✅ URGENT NEEDS\n─────────────────────────────\nNo urgent needs at this time. All zones stable.';
+    }
+
+    const lines = items.slice(0, 8).map((n, i) => {
+      const cat = n.category || 'Unknown';
+      const loc = n.location || n.region || 'Unknown';
+      const deadline = n.deadline || 'ASAP';
+      const assigned = n.assigned || 0;
+      const needed = n.volunteers || '?';
+      return `  ${i + 1}. ${cat} — ${loc}\n     Deadline: ${deadline} · Volunteers: ${assigned}/${needed}`;
+    });
+
+    return [
+      `🚨 URGENT NEEDS (${items.length} active)`,
+      '─────────────────────────────',
+      ...lines,
+      items.length > 8 ? `\n  ... and ${items.length - 8} more` : '',
+    ].join('\n');
+  };
+
+  // ── MAIN SEND HANDLER ─────────────────────────────────────────
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -35,10 +138,153 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setIsTyping(true);
 
+    const msgLower = userMsg.trim().toLowerCase();
+
+    // ── INTERCEPT: Stats Summary ─────────────────────────────────
+    if (msgLower.includes('stats summary') || msgLower.includes('stats overview') || msgLower === 'stats') {
+      try {
+        console.log('[AIAssistant] Fetching stats summary from backend...');
+        const [statsRes, urgentRes] = await Promise.all([
+          safeFetch('/api/stats-summary'),
+          safeFetch('/api/urgent-needs'),
+        ]);
+
+        console.log('[AIAssistant] Stats response:', statsRes);
+        console.log('[AIAssistant] Urgent response:', urgentRes);
+
+        // Check for empty/null/invalid responses
+        const statsData = statsRes?.data || statsRes;
+        const isStatsEmpty = !statsData || (typeof statsData === 'object' && Object.values(statsData).every(v => v === 0 || v === null || v === undefined));
+
+        if (!statsRes && !urgentRes) {
+          // Both endpoints failed → full fallback mode
+          console.warn('[AIAssistant] Both data endpoints returned empty/null');
+
+          let recoveryHint = '';
+          if (lastKnownDataRef.current.stats) {
+            recoveryHint = '\n\n🔄 Recovery: Last known cached data is available. Retry the request or check /api/health for server status.';
+          } else {
+            recoveryHint = '\n\n🔄 Recovery: Retry the request. If the issue persists, verify backend connectivity at /api/health.';
+          }
+
+          setMessages(prev => [...prev, {
+            role: 'bot',
+            content: [
+              '📊 STATS SUMMARY',
+              '─────────────────────────────',
+              '⚠️ Server returned empty response. Please try again.',
+              '',
+              '📋 Fallback Guidance:',
+              FALLBACK_GUIDANCE,
+              recoveryHint,
+            ].join('\n'),
+          }]);
+          setIsTyping(false);
+          return;
+        }
+
+        // At least one endpoint returned data — cache it
+        if (statsRes) lastKnownDataRef.current.stats = statsRes;
+        if (urgentRes) lastKnownDataRef.current.urgentNeeds = urgentRes;
+
+        const summary = formatStatsSummary(
+          statsRes || lastKnownDataRef.current.stats,
+          urgentRes || lastKnownDataRef.current.urgentNeeds
+        );
+
+        // If data exists but all zeros, append guidance
+        const guidance = isStatsEmpty
+          ? `\n\nℹ️ Data shows zero across all metrics.\n\n📋 Fallback Guidance:\n${FALLBACK_GUIDANCE}`
+          : '';
+
+        setMessages(prev => [...prev, { role: 'bot', content: summary + guidance }]);
+      } catch (err) {
+        console.error('[AIAssistant] Stats fetch error:', err);
+        setMessages(prev => [...prev, {
+          role: 'bot',
+          content: [
+            '📊 STATS SUMMARY',
+            '─────────────────────────────',
+            '⚠️ Server returned empty response. Please try again.',
+            '',
+            '📋 Fallback Guidance:',
+            FALLBACK_GUIDANCE,
+            '',
+            '🔄 Recovery: Retry the request. Consider using last known cached data if available.',
+          ].join('\n'),
+        }]);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // ── INTERCEPT: Urgent Needs ──────────────────────────────────
+    if (msgLower.includes('urgent needs') || msgLower.includes('urgent') || msgLower === 'critical') {
+      try {
+        console.log('[AIAssistant] Fetching urgent needs from backend...');
+        const urgentRes = await safeFetch('/api/urgent-needs');
+        console.log('[AIAssistant] Urgent response:', urgentRes);
+
+        if (!urgentRes) {
+          let recoveryHint = '';
+          if (lastKnownDataRef.current.urgentNeeds) {
+            recoveryHint = '\n\n🔄 Recovery: Last known cached data is available. Retry the request.';
+          } else {
+            recoveryHint = '\n\n🔄 Recovery: Retry the request. Verify backend connectivity at /api/health.';
+          }
+
+          setMessages(prev => [...prev, {
+            role: 'bot',
+            content: [
+              '🚨 URGENT NEEDS',
+              '─────────────────────────────',
+              '⚠️ Server returned empty response. Please try again.',
+              '',
+              '📋 Fallback Guidance:',
+              FALLBACK_GUIDANCE,
+              recoveryHint,
+            ].join('\n'),
+          }]);
+          setIsTyping(false);
+          return;
+        }
+
+        lastKnownDataRef.current.urgentNeeds = urgentRes;
+        const formatted = formatUrgentNeeds(urgentRes);
+        setMessages(prev => [...prev, { role: 'bot', content: formatted }]);
+      } catch (err) {
+        console.error('[AIAssistant] Urgent needs fetch error:', err);
+        setMessages(prev => [...prev, {
+          role: 'bot',
+          content: [
+            '🚨 URGENT NEEDS',
+            '─────────────────────────────',
+            '⚠️ Server returned empty response. Please try again.',
+            '',
+            '📋 Fallback Guidance:',
+            FALLBACK_GUIDANCE,
+            '',
+            '🔄 Recovery: Retry the request. Consider using last known cached data if available.',
+          ].join('\n'),
+        }]);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // ── REGULAR AI CHAT ─────────────────────────────────────────
     try {
-      const response = await fetch('/api/chat', {
+      let authToken = null;
+      try { authToken = sessionStorage.getItem('Needlink_api_token'); } catch { /* noop */ }
+
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           message: userMsg,
           mode,
@@ -50,7 +296,22 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
         }),
       });
 
-      const payload = await response.json();
+      const text = await response.text();
+
+      // Guard: never let empty response crash the UI
+      if (!text || !text.trim()) {
+        console.warn('[AIAssistant] Empty response from server');
+        throw new Error("Server returned empty response. Please try again.");
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch (e) {
+        console.error("[AIAssistant] Invalid JSON:", text.substring(0, 200));
+        throw new Error("Invalid server response format.");
+      }
+
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to reach chat service.');
       }
@@ -71,8 +332,21 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
         err instanceof Error
           ? err.message
           : "AI service is currently unreachable.";
-      const fallback = buildModeAwareFallback(mode, userMsg);
-      setMessages(prev => [...prev, { role: 'bot', content: `Error: ${message}\n\nFallback guidance:\n${fallback}` }]);
+
+      // Prevent repeating the same fallback message consecutively
+      setMessages(prev => {
+        const lastBotMsg = [...prev].reverse().find(m => m.role === 'bot');
+        const errorContent = `⚠️ ${message}`;
+        if (lastBotMsg && lastBotMsg.content === errorContent) {
+          return prev;
+        }
+        const recentErrors = prev.filter(m => m.role === 'bot' && m.content.startsWith('⚠️')).length;
+        if (recentErrors >= 2) {
+          return [...prev, { role: 'bot', content: errorContent }];
+        }
+        const fallback = buildModeAwareFallback(mode, userMsg);
+        return [...prev, { role: 'bot', content: `${errorContent}\n\nFallback guidance:\n${fallback}` }];
+      });
     } finally {
       setIsTyping(false);
     }
@@ -197,9 +471,18 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
               border: '1px solid rgba(37,99,235,0.12)',
               flexShrink: 0,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <div 
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setIsSummaryOpen(!isSummaryOpen)}
+              >
                 <Brain size={13} color={G.blue} />
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: G.blue, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Live AI Summary</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4, padding: '2px 6px', borderRadius: 8, background: 'rgba(37,99,235,0.1)' }}>
+                  {isSummaryOpen ? <ChevronUp size={12} color={G.blue} /> : <ChevronDown size={12} color={G.blue} />}
+                  <span style={{ fontSize: 9.5, color: G.blue, fontWeight: 700, textTransform: 'uppercase' }}>
+                    {isSummaryOpen ? 'Hide' : 'Show'}
+                  </span>
+                </span>
                 {emergency && (
                   <span style={{
                     fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 6,
@@ -208,11 +491,22 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
                   }}>🚨 EMERGENCY</span>
                 )}
               </div>
-                <div style={{ fontFamily: "'SF Mono','Fira Code','Consolas',monospace", fontSize: 11.5, lineHeight: 1.8, color: G.t1 }}>
-                <div>⚡ Risk score: <span style={{ color: riskScore > 70 ? '#EF4444' : G.green, fontWeight: 700 }}>{riskScore}/100</span></div>
-                <div>🧠 {aiSnapshot?.leadMessage || 'Monitoring active reports'}</div>
-                {!isMobile && <div>🚀 {aiSnapshot?.deployMessage || 'Standby deployment strategy ready'}</div>}
-              </div>
+              <AnimatePresence>
+                {isSummaryOpen && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                    animate={{ height: 'auto', opacity: 1, marginTop: 12 }}
+                    exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ fontFamily: "'SF Mono','Fira Code','Consolas',monospace", fontSize: 11.5, lineHeight: 1.8, color: G.t1 }}>
+                      <div>⚡ Risk score: <span style={{ color: riskScore > 70 ? '#EF4444' : G.green, fontWeight: 700 }}>{riskScore}/100</span></div>
+                      <div>🧠 {aiSnapshot?.leadMessage || 'Monitoring active reports'}</div>
+                      {!isMobile && <div>🚀 {aiSnapshot?.deployMessage || 'Standby deployment strategy ready'}</div>}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div style={{ margin: isMobile ? '0 12px 8px' : '0 24px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>

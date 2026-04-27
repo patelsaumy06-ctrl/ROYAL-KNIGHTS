@@ -189,15 +189,34 @@ async function request(path, options = {}) {
     headers,
   });
 
+  // Read response body as text first to handle empty responses safely
+  const text = await res.text();
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
+    let body;
+    try {
+      body = text ? JSON.parse(text) : { error: res.statusText };
+    } catch {
+      body = { error: text || res.statusText };
+    }
     const err = new Error(body.error || `API error: ${res.status}`);
     err.status = res.status;
     err.details = body.details;
     throw err;
   }
 
-  return res.json();
+  // Guard: never return undefined from an empty 200 response
+  if (!text || !text.trim()) {
+    console.warn(`[backendApi] Empty response from ${path}, returning safe fallback`);
+    return { success: true, data: [], message: 'Empty response from server' };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error(`[backendApi] Failed to parse JSON from ${path}:`, text.substring(0, 200));
+    return { success: false, error: 'Invalid response format from server' };
+  }
 }
 
 export const backendApi = {

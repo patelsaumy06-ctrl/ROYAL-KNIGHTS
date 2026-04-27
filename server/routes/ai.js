@@ -161,17 +161,37 @@ Rules:
 
       const data = await geminiResponse.json();
       const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const parsed = JSON.parse(cleanJsonPayload(raw));
+
+      let parsed;
+      try {
+        const cleaned = cleanJsonPayload(raw);
+        if (!cleaned) {
+          throw new Error('Empty AI response text');
+        }
+        parsed = JSON.parse(cleaned);
+      } catch (parseErr) {
+        console.warn(`[AI] chat: failed to parse Gemini response, returning raw text. Error: ${parseErr.message}`);
+        // Return the raw text as a plain response instead of crashing
+        return res.json({
+          success: true,
+          classification: 'other',
+          details: { location: null, urgency: 'unknown', type: 'unknown' },
+          response: raw || 'AI could not generate a structured response. Please try rephrasing your query.',
+        });
+      }
 
       console.log(`[AI] chat by=${req.user.email} mode=${mode} class=${parsed.classification}`);
 
       return res.json({
+        success: true,
         classification: parsed.classification || 'other',
         details: parsed.details || { location: null, urgency: 'unknown', type: 'unknown' },
         response: parsed.response || 'Unable to generate response.',
       });
     } catch (error) {
+      console.error('[AI] chat error:', error.message);
       return res.status(500).json({
+        success: false,
         error: 'Failed to process chat request.',
         details: error instanceof Error ? error.message : String(error),
       });

@@ -19,6 +19,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
+import { getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import config from './config.js';
 import authRouter from './routes/auth.js';
 import aiRouter from './routes/ai.js';
@@ -89,26 +91,141 @@ app.use('/api/match', matchRouter);
 
 // ── 7. Health / monitoring ─────────────────────────────────────
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    geminiConfigured: !!config.geminiApiKey,
-    claudeConfigured: !!config.claudeApiKey,
-    googleMapsConfigured: !!config.googleMapsApiKey,
-    version: '1.0.0',
+  return res.json({
+    success: true,
+    data: {
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      geminiConfigured: !!config.geminiApiKey,
+      claudeConfigured: !!config.claudeApiKey,
+      googleMapsConfigured: !!config.googleMapsApiKey,
+      version: '1.0.0',
+    },
   });
+});
+
+// ── Firestore helpers for stats & urgent-needs ──────────────────
+// Uses Firebase Admin SDK (initialised in middleware/auth.js) to
+// read live NGO data from Firestore.
+
+function getDb() {
+  const apps = getApps();
+  if (!apps.length) return null;
+  return getFirestore(apps[0]);
+}
+
+async function getStats() {
+  const db = getDb();
+  if (!db) {
+    console.warn('[stats-summary] Firebase Admin not initialised — returning empty stats.');
+    return { totalNeeds: 0, volunteers: 0, resolved: 0, urgent: 0 };
+  }
+
+  const snapshot = await db.collection('ngos').get();
+  if (snapshot.empty) {
+    console.log('[stats-summary] Firestore ngos collection is empty.');
+    return { totalNeeds: 0, volunteers: 0, resolved: 0, urgent: 0 };
+  }
+
+  let totalNeeds = 0, volunteers = 0, resolved = 0, urgent = 0;
+  snapshot.forEach((doc) => {
+    const d = doc.data();
+    if (d.stats) {
+      totalNeeds += Number(d.stats.totalNeeds) || 0;
+      volunteers += Number(d.stats.volunteers) || 0;
+      resolved   += Number(d.stats.resolved) || 0;
+      urgent     += Number(d.stats.urgent) || 0;
+    } else if (Array.isArray(d.needs)) {
+      // Fallback: compute from raw needs array
+      totalNeeds += d.needs.filter(n => n.status !== 'resolved').length;
+      resolved   += d.needs.filter(n => n.status === 'resolved').length;
+      urgent     += d.needs.filter(n => n.priority === 'urgent' && n.status !== 'resolved').length;
+    }
+    if (Array.isArray(d.volunteers)) {
+      volunteers += d.volunteers.length;
+    }
+  });
+
+  return { totalNeeds, volunteers, resolved, urgent };
+}
+
+async function getUrgentNeeds() {
+  const db = getDb();
+  if (!db) {
+    console.warn('[urgent-needs] Firebase Admin not initialised — returning empty.');
+    return [];
+  }
+
+  const snapshot = await db.collection('ngos').get();
+  if (snapshot.empty) {
+    console.log('[urgent-needs] Firestore ngos collection is empty.');
+    return [];
+  }
+
+  const urgentList = [];
+  snapshot.forEach((doc) => {
+    const d = doc.data();
+    if (Array.isArray(d.needs)) {
+      d.needs
+        .filter(n => n.priority === 'urgent' && n.status !== 'resolved')
+        .forEach(n => urgentList.push({ ...n, ngo: doc.id }));
+    }
+  });
+
+  return urgentList;
+}
+
+app.get('/api/stats-summary', async (req, res) => {
+  console.log(`[stats-summary] Incoming request from ${req.ip}`);
+  try {
+    const data = await getStats();
+    console.log('[stats-summary] Fetched data:', JSON.stringify(data));
+
+    return res.json({
+      success: true,
+      data,
+      message: data.totalNeeds === 0 ? 'No data available' : 'Stats fetched successfully',
+    });
+  } catch (err) {
+    console.error('[stats-summary] Error:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+});
+
+app.get('/api/urgent-needs', async (req, res) => {
+  console.log(`[urgent-needs] Incoming request from ${req.ip}`);
+  try {
+    const data = await getUrgentNeeds();
+    console.log(`[urgent-needs] Fetched ${data.length} urgent items`);
+
+    return res.json({
+      success: true,
+      data,
+      message: data.length === 0 ? 'No urgent needs at this time' : `${data.length} urgent needs found`,
+    });
+  } catch (err) {
+    console.error('[urgent-needs] Error:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
 });
 
 // ── 8. 404 fallback ────────────────────────────────────────────
 app.use('/api/*', (_req, res) => {
-  res.status(404).json({ error: 'Endpoint not found.' });
+  return res.status(404).json({ success: false, error: 'Endpoint not found.' });
 });
 
 // ── 9. Global error handler ────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error('[FATAL]', err);
-  res.status(500).json({
+  return res.status(500).json({
+    success: false,
     error: 'Internal server error.',
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
