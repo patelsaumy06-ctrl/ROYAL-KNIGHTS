@@ -2,7 +2,7 @@
  * Volunteer Schema - Data contract for volunteer entities
  * 
  * This schema defines the structure and validation for volunteer data
- * across the ReliefLink platform. Used for type safety and data integrity.
+ * across the Needlink platform. Used for type safety and data integrity.
  */
 
 /**

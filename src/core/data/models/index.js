@@ -1,7 +1,7 @@
 /**
  * Models Index - Central export for all data models
  * 
- * Provides a unified interface for data models across the ReliefLink platform.
+ * Provides a unified interface for data models across the Needlink platform.
  */
 
 export {

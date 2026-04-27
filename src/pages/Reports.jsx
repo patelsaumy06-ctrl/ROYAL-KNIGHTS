@@ -42,7 +42,7 @@ export default function Reports({ intelligence = null }) {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
     pdf.setTextColor(37, 99, 235);
-    pdf.text("ReliefLink AI", 14, y);
+    pdf.text("Needlink AI", 14, y);
     pdf.setFontSize(10);
     pdf.setTextColor(100, 116, 139);
     pdf.text("Community Intelligence Platform", 60, y);
@@ -194,10 +194,10 @@ export default function Reports({ intelligence = null }) {
       pdf.setPage(i);
       pdf.setFontSize(8);
       pdf.setTextColor(148, 163, 184);
-      pdf.text(`ReliefLink AI  •  Page ${i} of ${totalPages}  •  Confidential`, pageW / 2, pdf.internal.pageSize.getHeight() - 8, { align: "center" });
+      pdf.text(`Needlink AI  •  Page ${i} of ${totalPages}  •  Confidential`, pageW / 2, pdf.internal.pageSize.getHeight() - 8, { align: "center" });
     }
 
-    pdf.save(`ReliefLink_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+    pdf.save(`Needlink_Report_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const handleExportCSV = async () => {
@@ -209,7 +209,7 @@ export default function Reports({ intelligence = null }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `ReliefLink_report_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `Needlink_report_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();

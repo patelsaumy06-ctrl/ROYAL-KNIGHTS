@@ -14,7 +14,7 @@ export const NGO_TYPES = [
 
 // Demo accounts for the quick-fill UI panel (passwords NOT stored — just for display hints)
 const DEMO_HINTS = [
-  { email: "ngo@ReliefLink.org", password: "ngo123", type: "Relief NGO" },
+  { email: "ngo@Needlink.org", password: "ngo123", type: "Relief NGO" },
   { email: "care@gujarat.org", password: "care123", type: "Health NGO" },
   { email: "flood@aid.org", password: "flood123", type: "Disaster Relief" },
 ];
@@ -89,7 +89,7 @@ function SignIn({ onLogin, onGoSignUp }) {
       const firebaseIdToken = await user.getIdToken();
 
       onLogin({
-        email: `guest_${user.uid.substring(0, 5)}@ReliefLink.org`,
+        email: `guest_${user.uid.substring(0, 5)}@Needlink.org`,
         name: "Guest Explorer",
         type: "Relief NGO",
         password: "demo",
@@ -123,7 +123,7 @@ function SignIn({ onLogin, onGoSignUp }) {
             style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 420 }}>
             <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg,#2563EB,#8B5CF6)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 32, fontSize: 34, boxShadow: "0 20px 40px rgba(37,99,235,0.3),inset 0 1px 0 rgba(255,255,255,0.2)" }}>🤝</div>
             <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: isTablet ? 36 : 44, color: "#fff", lineHeight: 1.15, letterSpacing: "-0.03em", marginBottom: 20 }}>
-              ReliefLink <span style={{ background: "linear-gradient(135deg,#60A5FA,#A78BFA)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span>
+              Needlink <span style={{ background: "linear-gradient(135deg,#60A5FA,#A78BFA)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span>
             </h1>
             <p style={{ fontSize: isTablet ? 14 : 16, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, marginBottom: 40 }}>
               Transform scattered community data into coordinated, life-saving action with AI-powered intelligence.
@@ -151,7 +151,7 @@ function SignIn({ onLogin, onGoSignUp }) {
             <div style={{ textAlign: "center", marginBottom: 32 }}>
               <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg,#2563EB,#8B5CF6)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16, fontSize: 28, boxShadow: "0 12px 28px rgba(37,99,235,0.3)" }}>🤝</div>
               <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, color: "#0F172A", lineHeight: 1.15, letterSpacing: "-0.03em", marginBottom: 8 }}>
-                ReliefLink <span style={{ background: "linear-gradient(135deg,#2563EB,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span>
+                Needlink <span style={{ background: "linear-gradient(135deg,#2563EB,#8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI</span>
               </h1>
             </div>
           )}
@@ -339,7 +339,7 @@ function SignUp({ onSignedUp, onGoSignIn }) {
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#2563EB,#8B5CF6)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16, fontSize: 32, boxShadow: "0 12px 28px rgba(37,99,235,0.3)" }}>🤝</div>
           <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#0F172A", marginBottom: 4 }}>Create your account</h1>
-          <p style={{ fontSize: 13, color: "#64748B" }}>Register your NGO on ReliefLink AI</p>
+          <p style={{ fontSize: 13, color: "#64748B" }}>Register your NGO on Needlink AI</p>
         </div>
 
         <div style={{ background: "#fff", borderRadius: isMobile ? 16 : 20, border: "1px solid #E8EDF5", padding: isMobile ? "24px 18px" : "36px 32px", boxShadow: "0 20px 60px rgba(0,0,0,0.07)" }}>
@@ -436,7 +436,7 @@ function SignUp({ onSignedUp, onGoSignIn }) {
             )}
 
             <div style={{ fontSize: 12, color: "#64748B", marginBottom: 20, lineHeight: 1.6, padding: "12px 14px", background: "#F8FAFD", borderRadius: 8, border: "1px solid #E8EDF5" }}>
-              By creating an account you agree to ReliefLink AI's{" "}
+              By creating an account you agree to Needlink AI's{" "}
               <span style={{ color: "#2563EB", cursor: "pointer" }}>Terms of Service</span>{" "}and{" "}
               <span style={{ color: "#2563EB", cursor: "pointer" }}>Privacy Policy</span>.
             </div>
@@ -456,7 +456,7 @@ function SignUp({ onSignedUp, onGoSignIn }) {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 11, color: "#94A3B8" }}>
-          ReliefLink AI · Community Intelligence Platform · Gujarat
+          Needlink AI · Community Intelligence Platform · Gujarat
         </div>
       </div>
     </div>

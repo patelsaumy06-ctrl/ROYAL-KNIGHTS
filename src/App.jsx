@@ -214,17 +214,17 @@ export default function App() {
     } catch (e) {
       console.warn('Backend auth unavailable — AI features may be limited:', e.message);
     }
-    localStorage.setItem('ReliefLink_current_ngo_email', account.email);
+    localStorage.setItem('Needlink_current_ngo_email', account.email);
     setNgo(account);
     setPage('landing');
-    const tourKey = `ReliefLink_tour_seen_${account.email}`;
+    const tourKey = `Needlink_tour_seen_${account.email}`;
     if (!localStorage.getItem(tourKey)) setShowTour(true);
   };
 
   const handleLogout = () => {
     api.setAccount(null);
     backendApi.clearToken();
-    localStorage.removeItem('ReliefLink_current_ngo_email');
+    localStorage.removeItem('Needlink_current_ngo_email');
     setNgo(null);
     setPage('landing');
     setAuthView('signin');
@@ -348,7 +348,7 @@ export default function App() {
           <WalkthroughOverlay
             onComplete={() => {
               setShowTour(false);
-              if (ngo?.email) localStorage.setItem(`ReliefLink_tour_seen_${ngo.email}`, 'true');
+              if (ngo?.email) localStorage.setItem(`Needlink_tour_seen_${ngo.email}`, 'true');
             }}
             onNav={handleNav}
           />

@@ -18,7 +18,7 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
   const { isMobile } = useMediaQuery();
 
   useEffect(() => {
-    const email = localStorage.getItem('ReliefLink_current_ngo_email');
+    const email = localStorage.getItem('Needlink_current_ngo_email');
     if (!email) {
       setNeeds([]);
       return;
@@ -61,7 +61,7 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
   const handleResolve = async (id) => {
     setResolving((r) => ({ ...r, [id]: true }));
     try {
-      const email = localStorage.getItem('ReliefLink_current_ngo_email');
+      const email = localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       await updateNeedStatus(email, id, 'resolved');
       setNeeds((n) => n.map((x) => (x.id === id ? { ...x, status: 'resolved' } : x)));
@@ -77,7 +77,7 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
     if (!ok) return;
     setDeleting((d) => ({ ...d, [id]: true }));
     try {
-      const email = localStorage.getItem('ReliefLink_current_ngo_email');
+      const email = localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       await deleteNeed(email, id);
       setNeeds((curr) => curr.filter((n) => n.id !== id));
@@ -109,7 +109,7 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
             setModalInitialDraft(null);
           }}
           onSave={async () => {
-            const email = localStorage.getItem('ReliefLink_current_ngo_email');
+            const email = localStorage.getItem('Needlink_current_ngo_email');
             const list = email ? await getAllIncidents(email) : [];
             setNeeds(list);
             setShowModal(false);

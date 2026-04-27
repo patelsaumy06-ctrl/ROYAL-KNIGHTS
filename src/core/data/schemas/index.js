@@ -2,7 +2,7 @@
  * Schema Index - Central export for all data schemas
  * 
  * Provides a unified interface for data validation and schema management
- * across the ReliefLink platform.
+ * across the Needlink platform.
  */
 
 export {

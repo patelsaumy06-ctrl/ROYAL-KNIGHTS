@@ -7,7 +7,7 @@
  * but is cleared when the browser closes.
  */
 
-const TOKEN_KEY = 'ReliefLink_api_token';
+const TOKEN_KEY = 'Needlink_api_token';
 
 /**
  * Resolve the API base URL.

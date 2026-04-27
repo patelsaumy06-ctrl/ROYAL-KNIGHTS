@@ -74,7 +74,7 @@ export default function AddVolunteerModal({onClose, onSave, taskLocation}) {
         match: Math.floor(50+Math.random()*40), available: form.available, color,
         phone: form.phone, lat, lng,
       };
-      const email = localStorage.getItem('ReliefLink_current_ngo_email');
+      const email = localStorage.getItem('Needlink_current_ngo_email');
       // Validate and sanitize to prevent malformed records and unsafe rendered content.
       const validation = validateVolunteer(newVol, { ngoEmail: email });
       if (!validation.isValid) {

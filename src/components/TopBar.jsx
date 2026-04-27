@@ -17,7 +17,7 @@ export default function TopBar({
 }) {
   const [searchFocus,setSearchFocus] = useState(false);
   const meta = {
-    landing:"Welcome back to ReliefLink AI",
+    landing:"Welcome back to Needlink AI",
     dashboard:"Real-time overview · Gujarat Region · April 2026",
     insights:"AI-powered community need analysis",
     map:"Geographic need distribution & heatmap",

@@ -6,7 +6,7 @@ import { ASSISTANT_MODES, buildModeAwareFallback } from '../services/assistantMo
 
 export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMobile = false }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([{ role: 'bot', content: "Hello! I'm your ReliefLink AI assistant. How can I help you optimize crisis response today?" }]);
+  const [messages, setMessages] = useState([{ role: 'bot', content: "Hello! I'm your Needlink AI assistant. How can I help you optimize crisis response today?" }]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [mode, setMode] = useState('coordinator');
@@ -176,7 +176,7 @@ export default function AIAssistant({ emergency, riskScore = 0, aiSnapshot, isMo
                   <Brain size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}>ReliefLink AI</div>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>Needlink AI</div>
                   <div style={{ fontSize: 11, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80' }} />
                     Analyzing live telemetry

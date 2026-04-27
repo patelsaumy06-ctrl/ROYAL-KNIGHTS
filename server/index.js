@@ -1,5 +1,5 @@
 /**
- * ReliefLink API Server — Production-Grade Entrypoint
+ * Needlink API Server — Production-Grade Entrypoint
  *
  * Architecture:
  *   ┌─────────────────────────────────────────────────────────┐
@@ -116,7 +116,7 @@ app.use((err, _req, res, _next) => {
 
 // ── 10. Start ──────────────────────────────────────────────────
 app.listen(config.port, () => {
-  console.log(`\n🚀 ReliefLink API running on http://localhost:${config.port}`);
+  console.log(`\n🚀 Needlink API running on http://localhost:${config.port}`);
   console.log(`   Health:        GET  /api/health`);
   console.log(`   Auth:          POST /api/auth/login`);
   console.log(`   AI:            POST /api/ai/parse-document`);

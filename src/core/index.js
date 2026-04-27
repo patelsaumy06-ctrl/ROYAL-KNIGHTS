@@ -2,7 +2,7 @@
  * Core AI System - Production-Grade Humanitarian Response Platform
  * 
  * This module exports all AI/ML engines, pipelines, and orchestration
- * for the ReliefLink platform.
+ * for the Needlink platform.
  * 
  * Architecture Layers:
  * - Data Layer: Schemas and models for type safety

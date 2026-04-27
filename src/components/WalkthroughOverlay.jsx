@@ -5,7 +5,7 @@ import { G } from '../styles/theme';
 
 const STEPS = [
   {
-    title: "Welcome to ReliefLink AI",
+    title: "Welcome to Needlink AI",
     content: "This is your operational command center. Here you can see real-time statistics and strategic AI insights to manage community needs across the region.",
     target: "dashboard",
     position: "center"

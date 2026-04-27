@@ -53,7 +53,7 @@ export default function Sidebar({ active, onNav, ngo, onLogout, unreadCount = 0,
             fontSize: 18
           }}>🤝</div>
           <div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.02em" }}>ReliefLink AI</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.02em" }}>Needlink AI</div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: "1.5px", textTransform: "uppercase", marginTop: 3, fontWeight: 500 }}>Community Intel</div>
           </div>
         </div>

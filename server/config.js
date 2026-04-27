@@ -17,7 +17,7 @@ const config = {
   openaiModel: env.OPENAI_MODEL || 'gpt-4o-mini',
 
   // ── Auth ──────────────────────────────────────────────────────
-  jwtSecret: env.JWT_SECRET || 'ReliefLink-dev-secret-change-in-prod',
+  jwtSecret: env.JWT_SECRET || 'Needlink-dev-secret-change-in-prod',
   jwtExpiresIn: env.JWT_EXPIRES_IN || '8h',
 
   // ── Rate limiting ─────────────────────────────────────────────

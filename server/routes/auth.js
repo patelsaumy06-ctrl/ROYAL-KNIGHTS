@@ -9,10 +9,10 @@ const router = Router();
  * user verification so credentials are never hardcoded.
  */
 const ACCOUNTS = [
-  { email: 'ngo@ReliefLink.org',   password: 'ngo123',   name: 'ReliefLink Foundation',   type: 'Relief NGO' },
+  { email: 'ngo@Needlink.org',   password: 'ngo123',   name: 'Needlink Foundation',   type: 'Relief NGO' },
   { email: 'care@gujarat.org',   password: 'care123',  name: 'Gujarat Care Society',  type: 'Health NGO' },
   { email: 'flood@aid.org',      password: 'flood123', name: 'Flood Aid Gujarat',     type: 'Disaster Relief' },
-  { email: 'admin@ReliefLink.org', password: 'admin123', name: 'ReliefLink Admin',        type: 'Super Admin' },
+  { email: 'admin@Needlink.org', password: 'admin123', name: 'Needlink Admin',        type: 'Super Admin' },
 ];
 
 // Dynamically registered accounts (mirrors client-side addAccount)

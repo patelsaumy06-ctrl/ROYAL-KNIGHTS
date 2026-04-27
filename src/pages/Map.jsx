@@ -295,7 +295,7 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
       setLastSync(Date.now());
       return;
     }
-    const email = ngoEmail || localStorage.getItem('ReliefLink_current_ngo_email');
+    const email = ngoEmail || localStorage.getItem('Needlink_current_ngo_email');
     if (!email) {
       setNeeds([]);
       return;
@@ -430,7 +430,7 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
     if (!sel || resolving) return;
     setResolving(true);
     try {
-      const email = ngoEmail || localStorage.getItem('ReliefLink_current_ngo_email');
+      const email = ngoEmail || localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       await updateNeedStatus(email, sel.id, 'resolved');
       setSelected(null);

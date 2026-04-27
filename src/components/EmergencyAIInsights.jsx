@@ -220,7 +220,7 @@ export default function EmergencyAIInsights({
             </div>
             <button
               type="button"
-              onClick={() => handleCopy('Activate Emergency Mode — ReliefLink', 'emergency-title')}
+              onClick={() => handleCopy('Activate Emergency Mode — Needlink', 'emergency-title')}
               style={{
                 background: DK.surface,
                 border: `1px solid ${DK.border}`,

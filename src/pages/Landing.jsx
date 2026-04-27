@@ -33,7 +33,7 @@ export default function Landing({onNav}) {
           <motion.div initial={{opacity:0, scale:0.9, y:20}} animate={{opacity:1, scale:1, y:0}} transition={{duration:0.6, ease:[0.16,1,0.3,1]}}>
             <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.7)",border:`1px solid rgba(255,255,255,0.9)`,boxShadow:"0 8px 32px rgba(37,99,235,0.1)",backdropFilter:"blur(16px)",borderRadius:100,padding: isMobile ? "8px 16px" : "10px 24px",fontSize: isMobile ? 12 : 13,color:"#2563EB",fontWeight:700,marginBottom: isMobile ? 24 : 36}}>
               <Zap size={18} color="#2563EB" fill="#2563EB"/>
-              Introducing the Next-Gen ReliefLink AI
+              Introducing the Next-Gen Needlink AI
             </div>
           </motion.div>
           

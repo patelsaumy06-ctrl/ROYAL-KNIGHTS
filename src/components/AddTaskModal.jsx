@@ -116,7 +116,7 @@ export default function AddTaskModal({ onClose, onSave, initialDraft = null }) {
         urgencyScore,
         aiAnalysis,
       };
-      const email = localStorage.getItem('ReliefLink_current_ngo_email');
+      const email = localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       // Client-side guard: fail fast with user-friendly feedback before write attempts.
       const validation = validateNeed(newTask, { ngoEmail: email });

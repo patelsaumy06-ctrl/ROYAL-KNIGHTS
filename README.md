@@ -1,4 +1,4 @@
-# 🔗 NeedLink AI
+# 🔗 Needlink AI
 ### *Data-Driven Volunteer Coordination for Social Impact*
 
 > **Smart Resource Allocation** — connecting community needs with the right volunteers, at the right time.
@@ -20,7 +20,7 @@ The result: urgent needs go unmet. Willing volunteers go undeployed. Resources a
 
 ## 💡 Our Solution
 
-**NeedLink AI** is an intelligent volunteer coordination platform that:
+**Needlink AI** is an intelligent volunteer coordination platform that:
 
 - **Aggregates** community need data from multiple sources into a single, clear dashboard
 - **Prioritizes** issues using AI-driven urgency scoring, so the biggest problems are always visible first
@@ -48,7 +48,7 @@ We turn scattered data into decisive action.
 
 ```
 ┌─────────────────────────────────────────────┐
-│               NeedLink AI                   │
+│               Needlink AI                   │
 │                                             │
 │  ┌──────────┐     ┌──────────────────────┐  │
 │  │  NGO /   │────▶│   Data Aggregation   │  │
@@ -80,7 +80,7 @@ We turn scattered data into decisive action.
 
 ## 🤖 AI Integration
 
-The core of NeedLink AI is its **smart matching engine**, which:
+The core of Needlink AI is its **smart matching engine**, which:
 
 1. **Scores urgency** of community needs using weighted criteria (severity, affected population, time sensitivity)
 2. **Profiles volunteers** based on declared skills, past activity, and availability windows
@@ -93,11 +93,11 @@ This goes well beyond a simple directory. The AI layer transforms raw community 
 
 ## 🎯 Alignment With Cause
 
-NeedLink AI was built specifically for the **Smart Resource Allocation** challenge. We address all three dimensions directly:
+Needlink AI was built specifically for the **Smart Resource Allocation** challenge. We address all three dimensions directly:
 
 - **Problem Definition:** We tackle a concrete, well-researched pain point — data fragmentation in grassroots NGO operations — that actively reduces the effectiveness of social impact work.
 - **Relevance of Solution:** Every feature maps directly to a real coordination bottleneck. We aren't building generic software; we're solving the specific gap between need identification and volunteer deployment.
-- **Expected Impact:** A platform like NeedLink AI can reduce volunteer-to-task matching time from days to minutes, allow NGOs to respond faster to crises, and make community data actionable for organizations that previously lacked the tools to use it.
+- **Expected Impact:** A platform like Needlink AI can reduce volunteer-to-task matching time from days to minutes, allow NGOs to respond faster to crises, and make community data actionable for organizations that previously lacked the tools to use it.
 
 ---
 
