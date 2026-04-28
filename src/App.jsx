@@ -27,6 +27,7 @@ import Reports from './pages/Reports';
 import Auth from './pages/Auth';
 import CommunityNeeds from './pages/CommunityNeeds';
 import CrisisPipeline from './pages/CrisisPipeline';
+import EmergencyMode from './components/EmergencyMode';
 
 export default function App() {
   const [page, setPage] = useState('landing');
@@ -100,6 +101,23 @@ export default function App() {
       keywords,
       weather: realWeather || FALLBACK_WEATHER,
     });
+
+    // If emergency is already manually active, boost risk score to reflect critical state
+    if (emergency) {
+      const boostedScore = Math.max(model.score, 75 + urgent.length * 5);
+      const boostedModel = { ...model, score: Math.min(100, boostedScore), level: 'critical', autoEmergency: true };
+      setRiskModel(boostedModel);
+      setAiSnapshot({
+        leadMessage: `🚨 EMERGENCY ACTIVE — ${urgent.length} urgent tasks require immediate attention. ${unresolved.length} total incidents under management.`,
+        deployMessage: urgent[0]
+          ? `Deploy ${Math.max(1, urgent[0].volunteers - urgent[0].assigned)} volunteers near ${urgent[0].location}.`
+          : 'All available volunteers are being dispatched to critical zones.',
+        confidence: Math.max(75, Math.min(99, Math.round(70 + boostedScore * 0.25 + vols.filter(v => v.available).length))),
+        riskScore: boostedModel.score,
+      });
+      return;
+    }
+
     setRiskModel(model);
     const isManualPauseActive = Date.now() < manualEmergencyPauseUntil;
     setEmergency(!isManualPauseActive && model.autoEmergency);
@@ -113,7 +131,7 @@ export default function App() {
       confidence: Math.max(55, Math.min(99, Math.round(60 + model.score * 0.35 + vols.filter(v => v.available).length))),
       riskScore: model.score,
     });
-  }, [liveNeeds, liveNotifications, manualEmergencyPauseUntil, volunteers, realWeather]);
+  }, [liveNeeds, liveNotifications, manualEmergencyPauseUntil, volunteers, realWeather, emergency]);
 
   useEffect(() => {
     setWeatherLoading(true);
@@ -257,7 +275,7 @@ export default function App() {
 
   const pages = {
     landing: <Landing onNav={handleNav} />,
-    dashboard: <Dashboard onNav={handleNav} emergency={emergency} onDeactivateEmergency={handleDeactivateEmergency} riskScore={riskModel.score} aiInsight={aiSnapshot.leadMessage} needsOverride={stableNeeds} />,
+    dashboard: <Dashboard onNav={handleNav} emergency={emergency} setEmergency={setEmergency} onDeactivateEmergency={handleDeactivateEmergency} evaluateEmergency={evaluateEmergency} riskScore={riskModel.score} aiInsight={aiSnapshot.leadMessage} needsOverride={stableNeeds} isMobile={isMobile} />,
     insights: <Insights onNav={handleNav} onEmergencyActivated={evaluateEmergency} intelligence={intelligence} smartMode={smartMode} />,
     map: <Map onNav={handleNav} initialTask={navCtx} emergency={emergency} riskScore={riskModel.score} needsOverride={effectiveNeeds} ngoEmail={ngo?.email} />,
     communityNeeds: <CommunityNeeds onNav={handleNav} intelligence={intelligence} />,

@@ -18,7 +18,8 @@ function getNeedLocationPoint(need) {
   if (!need) return DEFAULT_TASK_POINT;
   const lat = Number(need.lat);
   const lng = Number(need.lng);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  // Reject (0,0) = Null Island — always indicates missing data in this Gujarat-based app
+  if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) return { lat, lng };
   const resolved = resolveNeedCoordinates(need);
   return (Number.isFinite(resolved?.lat) && Number.isFinite(resolved?.lng)) ? resolved : DEFAULT_TASK_POINT;
 }

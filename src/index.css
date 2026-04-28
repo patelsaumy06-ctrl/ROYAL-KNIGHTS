@@ -131,3 +131,43 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ══════ Emergency Mode Animations ══════ */
+
+/* Pulsing glow for idle emergency button */
+.emergency-pulse-btn {
+  animation: emergency-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes emergency-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(239, 68, 68, 0.3),
+      0 8px 32px rgba(234, 88, 12, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(239, 68, 68, 0.55),
+      0 0 80px rgba(239, 68, 68, 0.2),
+      0 8px 32px rgba(234, 88, 12, 0.35);
+  }
+}
+
+/* Animated accent bar for emergency panel header */
+@keyframes emergencyBarShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Blinking live indicator dot */
+@keyframes emergency-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Siren rotation */
+@keyframes emergency-siren {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(15deg); }
+  75% { transform: rotate(-15deg); }
+}

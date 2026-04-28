@@ -216,6 +216,110 @@ app.get('/api/urgent-needs', async (req, res) => {
   }
 });
 
+// ── Emergency Mode Activation ──────────────────────────────────
+app.post('/api/emergency/activate', async (req, res) => {
+  console.log(`[emergency] Activation request from ${req.ip}`);
+  try {
+    const db = getDb();
+    if (!db) {
+      console.warn('[emergency] Firebase Admin not initialised — returning limited mode.');
+      return res.json({
+        success: true,
+        limitedData: true,
+        assignments: [],
+        criticalZones: [],
+        stats: { totalIncidents: 0, criticalZones: 0, volunteersDispatched: 0, averageETA: 0 },
+        message: '⚠️ Emergency mode activated with limited data',
+      });
+    }
+
+    const snapshot = await db.collection('ngos').get();
+    let allNeeds = [];
+    let allVolunteers = [];
+
+    snapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      if (Array.isArray(d.needs)) {
+        d.needs.forEach((n) => allNeeds.push({ ...n, ngo: docSnap.id }));
+      }
+      if (Array.isArray(d.volunteers)) {
+        d.volunteers.forEach((v) => allVolunteers.push({ ...v, ngo: docSnap.id }));
+      }
+    });
+
+    const unresolved = allNeeds.filter((n) => n.status !== 'resolved');
+    const available = allVolunteers.filter((v) => v.available !== false);
+
+    // Prioritize by severity + wait time
+    const prioritized = unresolved
+      .map((t) => {
+        const sev = t.priority === 'urgent' ? 100 : t.priority === 'medium' ? 60 : 30;
+        return { ...t, score: sev + (t.assigned || 0) * -5 };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    // Auto-assign nearest volunteers (up to 5)
+    const assignments = [];
+    const usedIds = new Set();
+    for (const task of prioritized.slice(0, 5)) {
+      const pool = available.filter((v) => !usedIds.has(v.id) && v.lat != null);
+      if (pool.length === 0) break;
+      let best = pool[0];
+      let bestDist = Infinity;
+      if (task.lat != null) {
+        for (const v of pool) {
+          const dlat = (task.lat - v.lat) * 111;
+          const dlng = (task.lng - v.lng) * 111 * Math.cos((task.lat * Math.PI) / 180);
+          const d = Math.sqrt(dlat * dlat + dlng * dlng);
+          if (d < bestDist) { bestDist = d; best = v; }
+        }
+      }
+      usedIds.add(best.id);
+      assignments.push({
+        task: { id: task.id, category: task.category, location: task.location, priority: task.priority },
+        volunteer: { id: best.id, name: best.name, skill: best.skill },
+        distanceKm: Number.isFinite(bestDist) ? Math.round(bestDist * 10) / 10 : null,
+        etaMinutes: Number.isFinite(bestDist) ? Math.max(3, Math.round((bestDist / 40) * 60)) : 5,
+      });
+    }
+
+    // Compute critical zones
+    const zoneMap = {};
+    for (const t of unresolved) {
+      const key = t.region || t.location || 'Unknown';
+      if (!zoneMap[key]) zoneMap[key] = { region: key, taskCount: 0, urgentCount: 0 };
+      zoneMap[key].taskCount++;
+      if (t.priority === 'urgent') zoneMap[key].urgentCount++;
+    }
+    const criticalZones = Object.values(zoneMap)
+      .map((z) => ({
+        ...z,
+        severity: z.urgentCount >= 2 ? 'critical' : z.urgentCount >= 1 ? 'high' : 'moderate',
+        color: z.urgentCount >= 2 ? '#EF4444' : z.urgentCount >= 1 ? '#F59E0B' : '#FB923C',
+      }))
+      .sort((a, b) => b.urgentCount - a.urgentCount);
+
+    console.log(`[emergency] ${assignments.length} assigned, ${criticalZones.length} zones`);
+    return res.json({
+      success: true,
+      limitedData: false,
+      assignments,
+      criticalZones,
+      stats: {
+        totalIncidents: unresolved.length,
+        criticalZones: criticalZones.filter((z) => z.severity === 'critical').length,
+        volunteersDispatched: assignments.length,
+        averageETA: assignments.length > 0
+          ? Math.round(assignments.reduce((s, a) => s + a.etaMinutes, 0) / assignments.length)
+          : 0,
+      },
+    });
+  } catch (err) {
+    console.error('[emergency] Error:', err);
+    return res.status(500).json({ success: false, error: 'Emergency activation failed.' });
+  }
+});
+
 // ── 8. 404 fallback ────────────────────────────────────────────
 app.use('/api/*', (_req, res) => {
   return res.status(404).json({ success: false, error: 'Endpoint not found.' });

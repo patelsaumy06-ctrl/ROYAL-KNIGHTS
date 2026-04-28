@@ -104,16 +104,19 @@ const fetchOrInitData = async () => {
 
   if (data.needs) {
     data.needs = data.needs.map((n) => {
-      if (n.lat != null && n.lng != null) return n;
-      const { lat, lng } = resolveNeedCoordinates(n);
-      return { ...n, lat, lng };
+      const lat = Number(n.lat);
+      const lng = Number(n.lng);
+      // Valid coordinates present (reject 0,0 = Null Island which indicates bad data)
+      if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) return n;
+      const resolved = resolveNeedCoordinates(n);
+      return { ...n, lat: resolved.lat, lng: resolved.lng };
     });
   }
 
   if (data.volunteers) {
     data.volunteers = data.volunteers.map(v => {
       const loc = VOL_LOCATIONS[v.name];
-      return loc ? { ...v, lat: loc.lat, lng: loc.lng, distance: 0 } : v;
+      return loc ? { ...v, lat: loc.lat, lng: loc.lng, distance: 0, available: true } : { ...v, available: true };
     });
   }
 
@@ -135,7 +138,17 @@ export const api = {
   getNeeds: async () => {
     if (_currentEmail) {
       try {
-        return await getAllIncidents(_currentEmail);
+        const incidents = await getAllIncidents(_currentEmail);
+        // Resolve coordinates for incidents that are missing lat/lng.
+        // Without this, tasks from Firestore may have null/0 coords,
+        // causing haversine to compute distances from (0,0) ≈ 8240 km.
+        return incidents.map((n) => {
+          const lat = Number(n.lat);
+          const lng = Number(n.lng);
+          if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) return n;
+          const resolved = resolveNeedCoordinates(n);
+          return { ...n, lat: resolved.lat, lng: resolved.lng };
+        });
       } catch (error) {
         console.warn('Falling back to cached needs after incident fetch failure', error);
       }

@@ -57,14 +57,14 @@ We turn scattered data into decisive action.
 │  └──────────┘                │              │
 │                              ▼              │
 │  ┌──────────┐     ┌──────────────────────┐  │
-│  │Volunteer │◀────│   AI Matching Engine  │  │
+│  │Volunteer │◀────│   AI Matching Engine │  │
 │  │  Portal  │     │  (Priority Scoring + │  │
 │  └──────────┘     │   Skill Alignment)   │  │
 │                   └──────────┬───────────┘  │
 │                              │              │
 │                   ┌──────────▼───────────┐  │
-│                   │   Real-Time Dashboard │  │
-│                   │  (NGOs + Volunteers)  │  │
+│                   │   Real-Time Dashboard│  │
+│                   │  (NGOs + Volunteers) │  │
 │                   └──────────────────────┘  │
 └─────────────────────────────────────────────┘
 ```

@@ -12,6 +12,7 @@ import Avatar from '../components/Avatar';
 import Spinner from '../components/Spinner';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { predictNeeds, calculateRiskScore } from '../core';
+import EmergencyMode from '../components/EmergencyMode';
 
 
 const fadeIn = (delay=0) => ({initial:{opacity:0,y:20},animate:{opacity:1,y:0},transition:{duration:0.5,delay,ease:[0.16,1,0.3,1]}});
@@ -43,7 +44,7 @@ const buildLiveChart = (needs) => {
   };
 };
 
-export default function Dashboard({onNav, emergency, onDeactivateEmergency, riskScore = 0, aiInsight = "", needsOverride = null}) {
+export default function Dashboard({onNav, emergency, setEmergency, onDeactivateEmergency, evaluateEmergency, riskScore = 0, aiInsight = "", needsOverride = null, isMobile: isMobileProp}) {
   const [stats,setStats]   = useState(null);
   const [needs,setNeeds]   = useState(null);
   const [chart,setChart]   = useState(null);
@@ -186,88 +187,15 @@ export default function Dashboard({onNav, emergency, onDeactivateEmergency, risk
         </div>
       </motion.div>
 
-      {/* ═══ EMERGENCY MODE BANNER ═══ */}
-      {emergency && (
-        <motion.div
-          initial={{ opacity: 0, scaleY: 0 }}
-          animate={{ opacity: 1, scaleY: 1 }}
-          exit={{ opacity: 0, scaleY: 0 }}
-          role="alert"
-          aria-live="assertive"
-          aria-label="Emergency mode active"
-          style={{
-            background: "linear-gradient(135deg, #7F1D1D 0%, #991B1B 40%, #B91C1C 100%)",
-            borderRadius: isMobile ? 14 : 18, padding: isMobile ? "16px 14px" : "22px 28px", marginBottom: 24,
-            border: "1px solid #F87171",
-            boxShadow: "0 0 30px rgba(239,68,68,0.25), 0 0 80px rgba(239,68,68,0.08)",
-            position: "relative", overflow: "hidden",
-          }}
-        >
-          {/* Animated pulse ring */}
-          <motion.div
-            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            style={{
-              position: "absolute", top: 20, left: 24,
-              width: 44, height: 44, borderRadius: "50%",
-              border: "2px solid #F87171",
-            }}
-          />
-          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", position: "relative", zIndex: 1, gap: isMobile ? 16 : 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-                style={{
-                  width: 44, height: 44, borderRadius: 14,
-                  background: "rgba(255,255,255,0.15)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}
-              >
-                <ShieldAlert size={22} color="#FCA5A5" />
-              </motion.div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <motion.div
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                    style={{ width: 8, height: 8, borderRadius: "50%", background: "#F87171" }}
-                  />
-                  <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 800, color: "#FCA5A5", textTransform: "uppercase", letterSpacing: "1.5px" }}>EMERGENCY MODE ACTIVE</span>
-                </div>
-                <div style={{ fontSize: isMobile ? 12 : 14, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>
-                  {urgent.length > 0
-                    ? `${urgent.length} critical zone${urgent.length > 1 ? 's' : ''} detected • Tasks auto-prioritized`
-                    : 'All volunteers notified • Critical zones highlighted on map'
-                  }
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={() => onNav("map")} aria-label="View emergency map" style={{
-                padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
-                background: "rgba(255,255,255,0.15)", color: "#fff",
-                border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer",
-                fontFamily: "'Inter',sans-serif",
-                display: "flex", alignItems: "center", gap: 6,
-                transition: "all 0.2s ease", minHeight: 44,
-              }}>
-                <Radio size={14} /> View Map
-              </button>
-              <button onClick={onDeactivateEmergency} aria-label="Deactivate emergency mode" style={{
-                padding: "10px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
-                background: "rgba(255,255,255,0.9)", color: "#991B1B",
-                border: "none", cursor: "pointer",
-                fontFamily: "'Inter',sans-serif",
-                transition: "all 0.2s ease", minHeight: 44,
-              }}>
-                ✕ Deactivate
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {/* ═══ EMERGENCY MODE SYSTEM ═══ */}
+      <EmergencyMode
+        emergency={emergency}
+        setEmergency={setEmergency}
+        evaluateEmergency={evaluateEmergency}
+        onDeactivateEmergency={onDeactivateEmergency}
+        onNav={onNav}
+        isMobile={isMobile}
+      />
 
       {/* Stat Cards */}
       <motion.div {...fadeIn(0.1)} role="status" aria-live="polite" aria-label="Live statistics" style={{display:"grid",gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",gap: isMobile ? 12 : 18,marginBottom: isMobile ? 20 : 28}}>

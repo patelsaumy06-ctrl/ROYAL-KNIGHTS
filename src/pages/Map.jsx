@@ -300,7 +300,9 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
       setNeeds([]);
       return;
     }
-    getAllIncidents(email)
+    // Use api.getNeeds() instead of raw getAllIncidents() so coordinates
+    // get resolved for tasks missing lat/lng.
+    api.getNeeds()
       .then((items) => {
         setNeeds(items);
         setLastSync(Date.now());
@@ -320,10 +322,12 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
   const PINS = useMemo(
     () =>
       (needs || []).map(n => {
-        const { lat, lng } =
-          n.lat != null && n.lng != null
-            ? { lat: n.lat, lng: n.lng }
-            : resolveNeedCoordinates(n);
+        const rawLat = Number(n.lat);
+        const rawLng = Number(n.lng);
+        const hasValidCoords = Number.isFinite(rawLat) && Number.isFinite(rawLng) && !(rawLat === 0 && rawLng === 0);
+        const { lat, lng } = hasValidCoords
+          ? { lat: rawLat, lng: rawLng }
+          : resolveNeedCoordinates(n);
         const reportSignal = analyzeReport(`${n.category || ''} ${n.reportText || ''}`);
         return {
           id: n.id, lat, lng, label: n.location, priority: n.priority,
@@ -394,7 +398,10 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
     if (id == null || id === '') return;
     const n = needs.find((x) => String(x.id) === String(id));
     if (!n) return;
-    const c = n.lat != null && n.lng != null ? { lat: n.lat, lng: n.lng } : resolveNeedCoordinates(n);
+    const rawLat = Number(n.lat); const rawLng = Number(n.lng);
+    const c = (Number.isFinite(rawLat) && Number.isFinite(rawLng) && !(rawLat === 0 && rawLng === 0))
+      ? { lat: rawLat, lng: rawLng }
+      : resolveNeedCoordinates(n);
     setSelected(n.id);
     setMapCenter([c.lat, c.lng]);
     setMapZoom(12);
