@@ -48,7 +48,7 @@ export const SKILL_CLUSTERS = [
     {
         canonical: 'water_sanitation',
         idfWeight: 1.5,
-        synonyms: ['wash', 'water purification', 'sanitation', 'hygiene', 'water supply', 'pumping', 'borehole'],
+        synonyms: ['wash', 'water purification', 'sanitation', 'hygiene', 'water supply', 'pumping', 'borehole', 'water logistics', 'water crisis'],
         related: ['plumbing', 'civil engineer', 'environmental'],
     },
     {
