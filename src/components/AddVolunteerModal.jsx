@@ -6,7 +6,7 @@ import { validateVolunteer } from '../utils/validation';
 import { haversineKm } from '../utils/geo';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
-const SKILL_OPTIONS = ["Water Logistics","Medical & First Aid","Civil Engineer","Logistics & Transport","Social Worker","Water Engineer","Teaching & Education","Medical Doctor","Food Distribution","Sanitation Expert","Community Organizer"];
+const SKILL_OPTIONS = ["Water Logistics","Water Crisis","Medical & First Aid","Civil Engineer","Logistics & Transport","Social Worker","Water Engineer","Teaching & Education","Medical Doctor","Food Distribution","Sanitation Expert","Community Organizer"];
 const AVATAR_COLORS = ["#6366F1","#EC4899","#F59E0B","#16A34A","#0891B2","#7C3AED","#DB2777","#059669","#D97706","#2563EB"];
 const REGION_OPTIONS = ["Mehsana","Patan","Banaskantha","Sabarkantha","Gandhinagar","Ahmedabad","Anand"];
 
