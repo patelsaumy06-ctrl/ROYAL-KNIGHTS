@@ -10,6 +10,7 @@ import ProgressBar from '../components/ProgressBar';
 import Tag from '../components/Tag';
 import Avatar from '../components/Avatar';
 import Spinner from '../components/Spinner';
+import SkeletonDashboard from '../components/SkeletonLoader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { predictNeeds, calculateRiskScore } from '../core';
 import EmergencyMode from '../components/EmergencyMode';
@@ -111,7 +112,7 @@ export default function Dashboard({onNav, emergency, setEmergency, onDeactivateE
     { label: 'Urgent Needs', value: urgent.length },
   ];
 
-  if (loading) return <Spinner/>;
+  if (loading) return <SkeletonDashboard />;
 
   // Quick time greeting
   const hour = new Date().getHours();
