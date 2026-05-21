@@ -343,10 +343,14 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
                           Match
                         </button>
                         <button
-                          disabled={resolving[n.id]}
+                          disabled={resolving[n.id] || n.assigned < n.volunteers}
                           onClick={() => handleResolve(n.id)}
                           aria-label={`Resolve ${n.category} task`}
-                          style={css.btn('secondary', true)}
+                          title={n.assigned < n.volunteers ? `Need ${n.volunteers - n.assigned} more volunteer(s) to resolve` : 'Mark as done'}
+                          style={{
+                            ...css.btn('secondary', true),
+                            ...(n.assigned < n.volunteers ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                          }}
                         >
                           {resolving[n.id] ? '…' : 'Resolve'}
                         </button>
