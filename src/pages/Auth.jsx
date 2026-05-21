@@ -70,8 +70,7 @@ function SignIn({ onLogin, onGoSignUp }) {
         email: user.email,
         name: profile.name || user.email,
         type: profile.type || "Relief NGO",
-        password,         // works for demo accounts whose passwords match server/routes/auth.js
-        firebaseIdToken,  // fallback for Firebase-registered users
+        firebaseIdToken,
       });
     } catch (err) {
       setError(friendlyError(err.code));

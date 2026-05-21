@@ -135,7 +135,9 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
       )}
       <div style={{ ...css.flex(0, 'center', 'space-between'), marginBottom: 20, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 12 : 0 }}>
         <div style={{ ...css.flex(8), flexWrap: 'wrap' }}>
-          {['all', 'active', 'open', 'resolved'].map((f) => (
+          {['all', 'active', 'open', 'resolved'].map((f) => {
+            const count = f === 'all' ? needs.length : needs.filter((n) => n.status === f).length;
+            return (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -150,11 +152,25 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
                 background: filter === f ? G.blue : G.surface,
                 color: filter === f ? '#fff' : G.t2,
                 transition: 'all 0.15s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: 100,
+                background: filter === f ? 'rgba(255,255,255,0.2)' : G.bg,
+                color: filter === f ? '#fff' : G.t3,
+                minWidth: 18,
+                textAlign: 'center',
+              }}>{count}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
         <button
           onClick={() => {

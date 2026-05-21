@@ -245,7 +245,6 @@ export default function App() {
     localStorage.removeItem('Needlink_current_ngo_email');
     setNgo(null);
     setPage('landing');
-    setAuthView('signin');
     setShowTour(false);
     setEmergency(false);
     setManualEmergencyPauseUntil(0);
