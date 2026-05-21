@@ -361,7 +361,17 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
                       </>
                     )}
                     {n.status === 'resolved' && (
-                      <span style={{ fontSize: 11, color: G.green, fontWeight: 600 }}>✓ Done</span>
+                      <>
+                        <span style={{ fontSize: 11, color: G.green, fontWeight: 600 }}>✓ Done</span>
+                        <button
+                          disabled={deleting[n.id]}
+                          onClick={() => handleDelete(n.id)}
+                          aria-label={`Remove completed ${n.category} task`}
+                          style={{ ...css.btn('secondary', true), borderColor: '#FCA5A5', color: '#B91C1C' }}
+                        >
+                          {deleting[n.id] ? '…' : 'Remove'}
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
