@@ -440,6 +440,7 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
       const email = ngoEmail || localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       await updateNeedStatus(email, sel.id, 'resolved');
+      await api.freeVolunteersForTask(sel.id);
       setSelected(null);
       setLoadError('');
       setLastSync(Date.now());

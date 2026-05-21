@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { G, css } from '../styles/theme';
 import { deleteNeed, getAllIncidents, updateNeedStatus } from '../services/firestoreRealtime';
+import { api } from '../services/api';
 import Tag from '../components/Tag';
 import Spinner from '../components/Spinner';
 import AddTaskModal from '../components/AddTaskModal';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-
 export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency = false, prioritizedTasks = [] }) {
   const [needs, setNeeds] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -64,6 +64,7 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
       const email = localStorage.getItem('Needlink_current_ngo_email');
       if (!email) throw new Error('Missing logged-in NGO email.');
       await updateNeedStatus(email, id, 'resolved');
+      await api.freeVolunteersForTask(id);
       setNeeds((n) => n.map((x) => (x.id === id ? { ...x, status: 'resolved' } : x)));
     } catch (error) {
       setLoadError(error?.message || 'Failed to update incident status.');

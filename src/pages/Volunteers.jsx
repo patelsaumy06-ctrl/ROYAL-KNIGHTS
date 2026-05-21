@@ -213,13 +213,21 @@ export default function Volunteers({ initialTask, needsOverride = null, intellig
     setAssigning(a=>({...a,[id]:true}));
     const aiProcessingDelayMs = 1000 + Math.floor(Math.random() * 1000);
     await new Promise((resolve) => setTimeout(resolve, aiProcessingDelayMs));
-    const res = await api.assignVolunteer(id, parseInt(selectedNeedId));
+    const res = await api.assignVolunteer(id, selectedNeedId);
     setAssigning(a=>({...a,[id]:false}));
     if(res.success) {
       setAssigned(a=>({...a,[id]:true}));
       setAssignSuccess((prev) => ({ ...prev, [id]: true }));
       setVols(v => v.map(vol => vol.id === id ? { ...vol, available: false, tasks: vol.tasks + 1 } : vol));
-      setNeeds(curr => curr.map(n => String(n.id) === selectedNeedId ? { ...n, assigned: Math.min(n.assigned + 1, n.volunteers) } : n));
+      setNeeds(curr => curr.map(n => {
+        if (String(n.id) !== selectedNeedId) return n;
+        const updated = { ...n, assigned: Math.min(n.assigned + 1, n.volunteers) };
+        if (res.autoCompleted) updated.status = 'resolved';
+        return updated;
+      }));
+      if (res.autoCompleted) {
+        alert(`✅ All volunteers matched! Task has been marked as completed.`);
+      }
       setTimeout(() => {
         setAssignSuccess((prev) => ({ ...prev, [id]: false }));
       }, 2500);

@@ -116,7 +116,8 @@ const fetchOrInitData = async () => {
   if (data.volunteers) {
     data.volunteers = data.volunteers.map(v => {
       const loc = VOL_LOCATIONS[v.name];
-      return loc ? { ...v, lat: loc.lat, lng: loc.lng, distance: 0, available: true } : { ...v, available: true };
+      const isAvailable = v.available ?? true;
+      return loc ? { ...v, lat: loc.lat, lng: loc.lng, distance: 0, available: isAvailable } : { ...v, available: isAvailable };
     });
   }
 
@@ -130,7 +131,11 @@ export const api = {
   cached: () => _cache.get(_currentEmail) || null,
 
   getStats:         async () => { const d = await fetchOrInitData(); return d.stats         || BLANK_DB().stats; },
-  getVolunteers:    async () => { const d = await fetchOrInitData(); return d.volunteers    || []; },
+  getVolunteers: async () => {
+    const d = await fetchOrInitData();
+    console.log('[api] getVolunteers returning:', d.volunteers?.length || 0, 'volunteers');
+    return d.volunteers || [];
+  },
   getNotifications: async () => { const d = await fetchOrInitData(); return d.notifications || []; },
   getUploads:       async () => { const d = await fetchOrInitData(); return d.uploads       || []; },
   getChartData:     async () => { const d = await fetchOrInitData(); return d.chartData     || BLANK_DB().chartData; },
@@ -142,13 +147,45 @@ export const api = {
         // Resolve coordinates for incidents that are missing lat/lng.
         // Without this, tasks from Firestore may have null/0 coords,
         // causing haversine to compute distances from (0,0) ≈ 8240 km.
-        return incidents.map((n) => {
+        const today = new Date().toISOString().split('T')[0];
+        const toAutoResolve = [];
+        const mapped = incidents.map((n) => {
           const lat = Number(n.lat);
           const lng = Number(n.lng);
-          if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) return n;
-          const resolved = resolveNeedCoordinates(n);
-          return { ...n, lat: resolved.lat, lng: resolved.lng };
+          const withCoords = (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0))
+            ? n
+            : { ...n, ...resolveNeedCoordinates(n) };
+
+          // Auto-complete: deadline passed or all volunteers assigned
+          if (withCoords.status !== 'resolved') {
+            const deadlinePassed = withCoords.deadline && withCoords.deadline <= today;
+            const fullyAssigned  = (withCoords.assigned || 0) >= (withCoords.volunteers || 1);
+            if (deadlinePassed || fullyAssigned) {
+              toAutoResolve.push(withCoords.id);
+              return { ...withCoords, status: 'resolved' };
+            }
+          }
+          return withCoords;
         });
+
+        // Batch-update auto-resolved tasks in Firestore (fire-and-forget)
+        if (toAutoResolve.length > 0) {
+          Promise.allSettled(
+            toAutoResolve.map((id) =>
+              updateIncidentStatus(_currentEmail, id, 'resolved')
+            )
+          ).then((results) => {
+            const failed = results.filter(r => r.status === 'rejected');
+            if (failed.length) console.warn(`[getNeeds] ${failed.length} auto-resolve updates failed`);
+            else {
+              console.info(`[getNeeds] Auto-resolved ${toAutoResolve.length} tasks (deadline passed or fully assigned)`);
+              // Free up the volunteers assigned to these auto-resolved tasks
+              toAutoResolve.forEach(id => api.freeVolunteersForTask(id));
+            }
+          });
+        }
+
+        return mapped;
       } catch (error) {
         console.warn('Falling back to cached needs after incident fetch failure', error);
       }
@@ -159,12 +196,97 @@ export const api = {
 
   assignVolunteer: async (volId, needId) => {
     const data = await fetchOrInitData();
-    const needs      = data.needs.map(n => n.id === needId ? { ...n, assigned: Math.min(n.assigned + 1, n.volunteers) } : n);
-    const volunteers = data.volunteers.map(v => v.id === volId ? { ...v, available: false, tasks: v.tasks + 1 } : v);
-    const chartData  = computeDynamicChartData(needs, data.chartData);
-    _cache.set(_currentEmail, { ...data, needs, volunteers, chartData });
-    await updateDoc(getNgoRef(), { needs, volunteers });
-    return { success: true, message: `Volunteer #${volId} assigned to need #${needId}` };
+    const strNeedId = String(needId);
+    const strVolId  = String(volId);
+
+    // ── Update volunteer (always lives in top-level NGO doc) ──────────
+    const volFound = data.volunteers.some(v => String(v.id) === strVolId);
+    if (!volFound) {
+      console.warn(`[assignVolunteer] Volunteer not found (volId=${strVolId})`);
+      return { success: false, message: 'Could not find volunteer to assign.' };
+    }
+    const volunteers = data.volunteers.map(v =>
+      String(v.id) === strVolId ? { ...v, available: false, assignedTaskId: strNeedId, tasks: (v.tasks || 0) + 1 } : v
+    );
+
+    // ── Update need — try subcollection first (primary data source) ───
+    let needUpdatedInSubcollection = false;
+    let autoCompleted = false;
+    if (_currentEmail) {
+      try {
+        const needRef = doc(db, 'ngos', _currentEmail, 'incidents', strNeedId);
+        const needSnap = await getDoc(needRef);
+        if (needSnap.exists()) {
+          const needData = needSnap.data();
+          const volunteersNeeded = needData.volunteers || 1;
+          const newAssigned = Math.min((needData.assigned || 0) + 1, volunteersNeeded);
+          const updatePayload = { assigned: newAssigned };
+          // Auto-complete: all volunteers matched → mark as resolved
+          if (newAssigned >= volunteersNeeded) {
+            updatePayload.status = 'resolved';
+            autoCompleted = true;
+          }
+          await updateDoc(needRef, updatePayload);
+          needUpdatedInSubcollection = true;
+        }
+      } catch (err) {
+        console.warn('[assignVolunteer] Subcollection update failed, trying top-level needs array', err);
+      }
+    }
+
+    // ── Fallback: update top-level needs array (legacy data) ──────────
+    if (!needUpdatedInSubcollection) {
+      const needFound = (data.needs || []).some(n => String(n.id) === strNeedId);
+      if (!needFound) {
+        console.warn(`[assignVolunteer] Need not found in any data source (needId=${strNeedId})`);
+        return { success: false, message: 'Could not find task to assign.' };
+      }
+      const needs = data.needs.map(n => {
+        if (String(n.id) !== strNeedId) return n;
+        const newAssigned = Math.min((n.assigned || 0) + 1, n.volunteers || 1);
+        const updated = { ...n, assigned: newAssigned };
+        // Auto-complete: all volunteers matched → mark as resolved
+        if (newAssigned >= (n.volunteers || 1)) {
+          updated.status = 'resolved';
+          autoCompleted = true;
+        }
+        return updated;
+      });
+      const chartData = computeDynamicChartData(needs, data.chartData);
+      _cache.set(_currentEmail, { ...data, needs, volunteers, chartData });
+      await updateDoc(getNgoRef(), { needs, volunteers });
+    } else {
+      // Only update volunteers in top-level doc (need was updated in subcollection)
+      _cache.set(_currentEmail, { ...data, volunteers });
+      await updateDoc(getNgoRef(), { volunteers });
+    }
+
+    if (autoCompleted) {
+      await api.freeVolunteersForTask(strNeedId);
+    }
+
+    return { success: true, autoCompleted, message: `Volunteer #${strVolId} assigned to need #${strNeedId}${autoCompleted ? ' — task auto-completed ✓' : ''}` };
+  },
+
+  freeVolunteersForTask: async (taskId) => {
+    if (!_currentEmail) return;
+    const d = await fetchOrInitData();
+    let updated = false;
+    const strTaskId = String(taskId);
+    const volunteers = (d.volunteers || []).map(v => {
+      if (v.assignedTaskId && String(v.assignedTaskId) === strTaskId) {
+        updated = true;
+        const { assignedTaskId, ...rest } = v; // Remove the assigned task tracking field
+        return { ...rest, available: true };
+      }
+      return v;
+    });
+
+    if (updated) {
+      _cache.set(_currentEmail, { ...d, volunteers });
+      await updateDoc(getNgoRef(), { volunteers });
+      console.info(`[freeVolunteersForTask] Freed volunteers assigned to task ${strTaskId}`);
+    }
   },
 
   markRead: async (id) => {
