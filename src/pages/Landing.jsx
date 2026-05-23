@@ -372,7 +372,7 @@ export default function Landing({ onNav }) {
           style={{
             background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             borderRadius: isMobile ? 20 : 32, padding: isMobile ? '40px 20px' : '64px 48px',
-            textAlign: 'center', position: 'relative', overflow: 'hidden', marginBottom: isMobile ? 0 : 0,
+            textAlign: 'center', position: 'relative', overflow: 'hidden', marginBottom: isMobile ? 0 : 80,
           }}
         >
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
