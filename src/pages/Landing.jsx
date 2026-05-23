@@ -89,7 +89,7 @@ export default function Landing({ onNav }) {
       <div style={{ position: 'absolute', bottom: '-10%', left: '20%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0) 70%)', borderRadius: '50%', filter: 'blur(80px)', zIndex: 0 }} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundImage: 'linear-gradient(#E2E8F0 1px, transparent 1px), linear-gradient(90deg, #E2E8F0 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.4 }} />
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 16px 0' : isTablet ? '60px 24px 0' : '80px 32px 0' }}>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 16px 0' : isTablet ? '60px 24px 0' : '80px 32px 80px' }}>
 
         {/* ═══════════════════════ SECTION 1: HERO ═══════════════════════ */}
         <section style={{ textAlign: 'center', paddingTop: isMobile ? 20 : 60, paddingBottom: isMobile ? 48 : 80 }}>
@@ -372,7 +372,7 @@ export default function Landing({ onNav }) {
           style={{
             background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             borderRadius: isMobile ? 20 : 32, padding: isMobile ? '40px 20px' : '64px 48px',
-            textAlign: 'center', position: 'relative', overflow: 'hidden', marginBottom: isMobile ? 0 : 0,
+            textAlign: 'center', position: 'relative', overflow: 'hidden', marginBottom: isMobile ? 0 : 80,
           }}
         >
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
