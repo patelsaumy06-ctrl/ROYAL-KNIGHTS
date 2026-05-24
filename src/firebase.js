@@ -6,14 +6,14 @@ import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDqvL_2Y4FLuhJEnravHDbopjlVslfmaV0",
-  authDomain: import.meta.env.VITE_AUTH_DOMAIN || "needlink-ai.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_DATABASE_URL || "https://needlink-ai-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_PROJECT_ID || "needlink-ai",
-  storageBucket: import.meta.env.VITE_STORAGE_BUCKET || "needlink-ai.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID || "1015764577813",
-  appId: import.meta.env.VITE_APP_ID || "1:1015764577813:web:a7207cf32fb2e482bda81c",
-  measurementId: import.meta.env.VITE_MEASUREMENT_ID || "G-05R36B59MQ",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_AUTH_DOMAIN || "",
+  databaseURL: import.meta.env.VITE_DATABASE_URL || "",
+  projectId: import.meta.env.VITE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_APP_ID || "",
+  measurementId: import.meta.env.VITE_MEASUREMENT_ID || "",
 };
 
 // Prevent duplicate app initialization (e.g. hot-reload)
