@@ -1,4 +1,4 @@
-// src/firebase.js
+// src/firebase.js (Initialized securely via GitHub Repository Secrets)
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
