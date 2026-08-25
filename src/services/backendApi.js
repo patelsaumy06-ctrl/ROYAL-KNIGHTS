@@ -7,6 +7,8 @@
  * but is cleared when the browser closes.
  */
 
+import { auth } from '../firebase';
+
 const TOKEN_KEY = 'Needlink_api_token';
 
 /**
@@ -17,15 +19,27 @@ const TOKEN_KEY = 'Needlink_api_token';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function getStoredToken() {
-  try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
 }
 
 function storeToken(token) {
-  try { sessionStorage.setItem(TOKEN_KEY, token); } catch { /* noop */ }
+  try {
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+  } catch { /* noop */ }
 }
 
 function clearStoredToken() {
-  try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* noop */ }
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  } catch { /* noop */ }
 }
 
 let _token = getStoredToken();
@@ -178,9 +192,18 @@ async function request(path, options = {}) {
     return simulateBackendResponse(path, options);
   }
 
+  let token = _token || getStoredToken();
+  if (!token && auth?.currentUser) {
+    try {
+      token = await auth.currentUser.getIdToken();
+      _token = token;
+      storeToken(token);
+    } catch { /* noop */ }
+  }
+
   const headers = {
     'Content-Type': 'application/json',
-    ...(_token ? { Authorization: `Bearer ${_token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 

@@ -10,6 +10,7 @@ import { GOOGLE_MAPS_API_KEY } from './services/maps';
 import { calculateRiskScore } from './core';
 import { buildIntelligenceSnapshot } from './services/intelligence';
 import { fetchWeather, FALLBACK_WEATHER, DEFAULT_WEATHER_COORDS } from './services/weather';
+import { onAuthChange } from './services/authService';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import QuickActionMenu from './components/QuickActionMenu';
@@ -141,6 +142,29 @@ export default function App() {
       })
       .catch((err) => console.error('Weather fetch failed', err))
       .finally(() => setWeatherLoading(false));
+
+    // Restore Firebase Auth session & token on page load/refresh
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          backendApi.setToken(token);
+          const email = user.email || `guest_${user.uid.substring(0, 5)}@Needlink.org`;
+          api.setAccount(email);
+          localStorage.setItem('Needlink_current_ngo_email', email);
+          setNgo((prev) => prev || {
+            email,
+            name: user.displayName || email,
+            type: 'Relief NGO',
+            firebaseIdToken: token,
+          });
+        } catch (e) {
+          console.warn('[App] Error getting token on auth change:', e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
