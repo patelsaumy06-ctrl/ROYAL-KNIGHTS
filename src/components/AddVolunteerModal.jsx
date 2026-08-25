@@ -191,7 +191,7 @@ export default function AddVolunteerModal({onClose, onSave, taskLocation}) {
           </div>
 
           {/* Error */}
-          {error && <div style={{fontSize:12,color:G.red,background:G.redLight,border:`1px solid #FECACA`,borderRadius:10,padding:"10px 14px"}}>⚠️ {error}</div>}
+          {error && <div style={{fontSize:12,color:G.red,background:G.redLight,border:`1px solid rgb(177, 63, 63)`,borderRadius:10,padding:"10px 14px"}}>⚠️ {error}</div>}
         </div>
 
         {/* Footer */}

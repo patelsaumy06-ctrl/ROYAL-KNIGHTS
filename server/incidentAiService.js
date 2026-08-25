@@ -3,6 +3,8 @@
 // (a client-side Vite prefix that should never appear in server code).
 import config from './config.js';
 
+const DEEPSEEK_API_KEY = config.deepseekApiKey;
+const DEEPSEEK_MODEL = config.deepseekModel;
 const CLAUDE_API_KEY = config.claudeApiKey;
 const CLAUDE_MODEL = config.claudeModel;
 const GEMINI_API_KEY = config.geminiApiKey;
@@ -202,12 +204,40 @@ async function callOpenAI(reportText, context = {}) {
   return normalizeResult(JSON.parse(cleanJsonPayload(raw)));
 }
 
+async function callDeepSeek(reportText, context = {}) {
+  if (!DEEPSEEK_API_KEY) throw new Error("Missing DeepSeek key");
+  const response = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL || "deepseek-chat",
+      messages: [
+        { role: "system", content: buildSystemPrompt() },
+        { role: "user", content: JSON.stringify({ reportText, context }, null, 2) },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`DeepSeek failed (${response.status}): ${await response.text()}`);
+  }
+  const data = await response.json();
+  const raw = data?.choices?.[0]?.message?.content || "{}";
+  return normalizeResult(JSON.parse(cleanJsonPayload(raw)));
+}
+
 export async function analyzeIncidentReport(reportText, options = {}) {
-  const provider = String(options.provider || process.env.AI_PROVIDER || "auto").toLowerCase();
+  const provider = String(options.provider || config.aiProvider || process.env.AI_PROVIDER || "auto").toLowerCase();
   const context = options.context || {};
 
   // Explicit provider selection
   try {
+    if (provider === "deepseek") return await callDeepSeek(reportText, context);
     if (provider === "claude") return await callClaude(reportText, context);
     if (provider === "openai") return await callOpenAI(reportText, context);
     if (provider === "gemini") return await callGemini(reportText, context);
@@ -215,7 +245,12 @@ export async function analyzeIncidentReport(reportText, options = {}) {
     console.warn(`[incidentAI] Explicit provider "${provider}" failed:`, err.message);
   }
 
-  // Auto mode: Claude → Gemini → OpenAI → keyword fallback
+  // Auto mode: DeepSeek → Claude → Gemini → OpenAI → keyword fallback
+  if (DEEPSEEK_API_KEY) {
+    try { return await callDeepSeek(reportText, context); } catch (e) {
+      console.warn("[incidentAI] DeepSeek failed, trying Claude/Gemini:", e.message);
+    }
+  }
   if (CLAUDE_API_KEY) {
     try { return await callClaude(reportText, context); } catch (e) {
       console.warn("[incidentAI] Claude failed, trying Gemini:", e.message);

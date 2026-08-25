@@ -51,8 +51,40 @@ function cleanJson(text = '') {
  * @returns {Promise<object>}   Parsed community needs object
  */
 export async function parseDocument(fileContent, fileType, fileName) {
+  // If DeepSeek is configured and it's a text document, DeepSeek V3 can parse it directly
+  if (config.deepseekApiKey && fileType === 'text' && (!config.geminiApiKey || config.aiProvider === 'deepseek')) {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.deepseekApiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.deepseekModel || 'deepseek-chat',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `\n\nFile name: ${fileName}\n\nFile content:\n${fileContent}` },
+        ],
+        temperature: 0.2,
+        max_tokens: 2048,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const rawText = data?.choices?.[0]?.message?.content || '';
+      const cleaned = cleanJson(rawText);
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        throw new Error('DeepSeek returned invalid JSON: ' + rawText.slice(0, 200));
+      }
+    }
+  }
+
   if (!config.geminiApiKey) {
-    throw new Error('GEMINI_API_KEY is not configured on the server.');
+    throw new Error('GEMINI_API_KEY (or DEEPSEEK_API_KEY for text files) is not configured on the server.');
   }
 
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;

@@ -9,12 +9,15 @@ const config = {
   port: Number(env.PORT) || 8787,
 
   // ── AI providers ──────────────────────────────────────────────
+  deepseekApiKey: env.DEEPSEEK_API_KEY || '',
+  deepseekModel: env.DEEPSEEK_MODEL || 'deepseek-chat',
   claudeApiKey: env.CLAUDE_API_KEY || '',
   claudeModel: env.CLAUDE_MODEL || 'claude-sonnet-4-20250514',
   geminiApiKey: env.GEMINI_API_KEY || '',
   geminiModel: env.GEMINI_MODEL || 'gemini-1.5-flash',
   openaiApiKey: env.OPENAI_API_KEY || '',
   openaiModel: env.OPENAI_MODEL || 'gpt-4o-mini',
+  aiProvider: env.AI_PROVIDER || 'auto',
 
   // ── Auth ──────────────────────────────────────────────────────
   jwtSecret: env.JWT_SECRET || 'Needlink-dev-secret-change-in-prod',

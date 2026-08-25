@@ -595,6 +595,41 @@ RULES:
 
 // ── LLM Provider Calls ─────────────────────────────────────────────────────
 
+async function analyzeWithDeepSeek(text) {
+  if (!config.deepseekApiKey) throw new Error('DEEPSEEK_API_KEY not configured');
+
+  // Pre-process: expand abbreviations + transliterations before sending to LLM
+  const processedText = preprocessText(text);
+
+  const response = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.deepseekApiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.deepseekModel || 'deepseek-chat',
+      max_tokens: 2048,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Analyze this humanitarian field report and extract ALL distinct community needs:\n\n${processedText}` },
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `DeepSeek API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const rawText = data.choices?.[0]?.message?.content || '';
+  const parsed = JSON.parse(cleanJson(rawText));
+  return { parsed, provider: 'llm_deepseek' };
+}
+
 async function analyzeWithClaude(text) {
   if (!config.claudeApiKey) throw new Error('CLAUDE_API_KEY not configured');
 
@@ -917,9 +952,22 @@ export async function analyzeReport(reportText, options = {}) {
 
   console.log('[NeedsExtractor] analyzeReport: input text (first 300 chars):', trimmed.slice(0, 300));
 
-  const useLLM = options.useLLM !== false && (config.claudeApiKey || config.geminiApiKey);
+  const useLLM = options.useLLM !== false && (config.deepseekApiKey || config.claudeApiKey || config.geminiApiKey);
 
   if (useLLM) {
+    if (config.deepseekApiKey) {
+      try {
+        console.log('[NeedsExtractor] analyzeReport: trying DeepSeek (V3)...');
+        const { parsed, provider } = await analyzeWithDeepSeek(trimmed);
+        const result = normalizeFromLLM(parsed, provider);
+        console.log('[NeedsExtractor] analyzeReport: DeepSeek success, needs count =', result.needs.length);
+        console.log('[NeedsExtractor] analyzeReport: needs =', JSON.stringify(result.needs, null, 2));
+        return result;
+      } catch (err) {
+        console.warn('[NeedsExtractor] DeepSeek failed, trying next provider:', err.message);
+      }
+    }
+
     if (config.claudeApiKey) {
       try {
         console.log('[NeedsExtractor] analyzeReport: trying Claude...');

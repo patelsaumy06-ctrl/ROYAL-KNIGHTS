@@ -353,8 +353,10 @@ app.listen(config.port, () => {
   console.log(`   AI:            POST /api/ai/match-score`);
   console.log(`   Match:         POST /api/match`);
   console.log(`\n   ── Key Status ──`);
+  console.log(`   DeepSeek (V3): ${config.deepseekApiKey ? '✅ configured' : 'ℹ️  not set (optional)'}`);
   console.log(`   Gemini:        ${config.geminiApiKey ? '✅ configured' : '⚠️  NOT configured — set GEMINI_API_KEY in .env'}`);
   console.log(`   Claude:        ${config.claudeApiKey ? '✅ configured' : 'ℹ️  not set (optional)'}`);
+  console.log(`   OpenAI:        ${config.openaiApiKey ? '✅ configured' : 'ℹ️  not set (optional)'}`);
   console.log(`   Google Maps:   ${config.googleMapsApiKey ? '✅ configured' : '⚠️  NOT configured — set GOOGLE_MAPS_API_KEY in .env'}`);
   console.log(`   CORS origin:   ${config.corsOrigin}`);
   console.log('');

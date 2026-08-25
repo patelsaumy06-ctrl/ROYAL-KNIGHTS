@@ -91,8 +91,8 @@ router.post(
         return res.status(400).json({ error: "A non-empty 'message' field is required." });
       }
 
-      if (!config.geminiApiKey) {
-        return res.status(500).json({ error: 'Server is missing GEMINI_API_KEY.' });
+      if (!config.deepseekApiKey && !config.geminiApiKey && !config.claudeApiKey) {
+        return res.status(500).json({ error: 'Server is missing AI API keys (DEEPSEEK_API_KEY / GEMINI_API_KEY / CLAUDE_API_KEY).' });
       }
 
       const systemPrompt = `
@@ -133,34 +133,73 @@ Rules:
         2,
       );
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: `${systemPrompt}\n\nINPUT:\n${userPrompt}` }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 600,
-              responseMimeType: 'application/json',
-            },
-          }),
-        },
-      );
+      let raw = '';
 
-      if (!geminiResponse.ok) {
-        const errorBody = await geminiResponse.text();
-        return res.status(502).json({ error: `Gemini request failed (${geminiResponse.status}).`, details: errorBody });
+      // 1. Try DeepSeek V3
+      if (config.deepseekApiKey) {
+        try {
+          const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${config.deepseekApiKey}`,
+            },
+            body: JSON.stringify({
+              model: config.deepseekModel || 'deepseek-chat',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `INPUT:\n${userPrompt}` },
+              ],
+              temperature: 0.2,
+              max_tokens: 600,
+              response_format: { type: 'json_object' },
+            }),
+          });
+          if (dsResponse.ok) {
+            const data = await dsResponse.json();
+            raw = data?.choices?.[0]?.message?.content || '';
+          }
+        } catch (e) {
+          console.warn('[AI] chat DeepSeek error:', e.message);
+        }
       }
 
-      const data = await geminiResponse.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // 2. Fallback to Gemini
+      if (!raw && config.geminiApiKey) {
+        try {
+          const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [{ text: `${systemPrompt}\n\nINPUT:\n${userPrompt}` }],
+                  },
+                ],
+                generationConfig: {
+                  temperature: 0.2,
+                  maxOutputTokens: 600,
+                  responseMimeType: 'application/json',
+                },
+              }),
+            },
+          );
+
+          if (geminiResponse.ok) {
+            const data = await geminiResponse.json();
+            raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          }
+        } catch (e) {
+          console.warn('[AI] chat Gemini error:', e.message);
+        }
+      }
+
+      if (!raw) {
+        return res.status(502).json({ error: 'AI request failed or no AI provider configured.' });
+      }
 
       let parsed;
       try {
@@ -170,7 +209,7 @@ Rules:
         }
         parsed = JSON.parse(cleaned);
       } catch (parseErr) {
-        console.warn(`[AI] chat: failed to parse Gemini response, returning raw text. Error: ${parseErr.message}`);
+        console.warn(`[AI] chat: failed to parse AI response, returning raw text. Error: ${parseErr.message}`);
         // Return the raw text as a plain response instead of crashing
         return res.json({
           success: true,
@@ -236,7 +275,41 @@ Be specific. Mention the most critical factor.
 Do NOT use markdown formatting. Return plain text only.
       `.trim();
 
-      // ── Claude (primary) ──────────────────────────────────────
+      // ── DeepSeek (V3) ──────────────────────────────────────────
+      if (config.deepseekApiKey) {
+        try {
+          const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${config.deepseekApiKey}`,
+            },
+            body: JSON.stringify({
+              model: config.deepseekModel || 'deepseek-chat',
+              max_tokens: 200,
+              messages: [
+                { role: 'system', content: 'You are a disaster relief volunteer coordinator. Explain match quality in 2-3 clear, specific sentences. Plain text only, no markdown.' },
+                { role: 'user', content: prompt },
+              ],
+              temperature: 0.4,
+            }),
+          });
+
+          if (dsResponse.ok) {
+            const data = await dsResponse.json();
+            const explanation = data.choices?.[0]?.message?.content?.trim();
+            if (explanation) {
+              console.log(`[AI] explain-match by=${req.user.email} vol=${volunteer.name || volunteer.id} provider=deepseek`);
+              return res.json({ explanation, provider: 'deepseek' });
+            }
+          }
+          console.warn('[AI] explain-match DeepSeek failed, trying next provider');
+        } catch (e) {
+          console.warn('[AI] explain-match DeepSeek error:', e.message);
+        }
+      }
+
+      // ── Claude (fallback) ─────────────────────────────────────
       if (config.claudeApiKey) {
         try {
           const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -269,32 +342,29 @@ Do NOT use markdown formatting. Return plain text only.
       }
 
       // ── Gemini (fallback) ──────────────────────────────────────
-      if (!config.geminiApiKey) {
-        return res.status(500).json({ error: 'No AI provider configured.' });
+      if (config.geminiApiKey) {
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.4, maxOutputTokens: 200 },
+            }),
+          },
+        );
+
+        if (geminiResponse.ok) {
+          const gemData = await geminiResponse.json();
+          const gemExplanation = gemData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Unable to generate explanation.';
+
+          console.log(`[AI] explain-match by=${req.user.email} vol=${volunteer.name || volunteer.id} provider=gemini`);
+          return res.json({ explanation: gemExplanation, provider: 'gemini' });
+        }
       }
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 200 },
-          }),
-        },
-      );
-
-      if (!geminiResponse.ok) {
-        const errorBody = await geminiResponse.text();
-        return res.status(502).json({ error: `Gemini request failed (${geminiResponse.status}).`, details: errorBody });
-      }
-
-      const gemData = await geminiResponse.json();
-      const gemExplanation = gemData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Unable to generate explanation.';
-
-      console.log(`[AI] explain-match by=${req.user.email} vol=${volunteer.name || volunteer.id} provider=gemini`);
-      return res.json({ explanation: gemExplanation, provider: 'gemini' });
+      return res.status(500).json({ error: 'No AI provider responded or configured. Set DEEPSEEK_API_KEY, CLAUDE_API_KEY, or GEMINI_API_KEY.' });
     } catch (error) {
       console.error('[AI] explain-match error:', error.message);
       return res.status(500).json({
