@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Homepage & Platform Overview -->
+  <url>
+    <loc>https://needlink-ai.web.app/</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Crisis Management Dashboard -->
+  <url>
+    <loc>https://needlink-ai.web.app/dashboard</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Live Crisis Hotspot Map -->
+  <url>
+    <loc>https://needlink-ai.web.app/map</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Volunteer Coordination & Matching -->
+  <url>
+    <loc>https://needlink-ai.web.app/volunteers</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Disaster Intelligence & Predictive Analytics -->
+  <url>
+    <loc>https://needlink-ai.web.app/insights</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Community Needs & Field Requests -->
+  <url>
+    <loc>https://needlink-ai.web.app/community-needs</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Emergency Response Tasks -->
+  <url>
+    <loc>https://needlink-ai.web.app/tasks</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Crisis Pipeline -->
+  <url>
+    <loc>https://needlink-ai.web.app/crisis-pipeline</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Impact Reports -->
+  <url>
+    <loc>https://needlink-ai.web.app/reports</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>

@@ -133,6 +133,11 @@ export default function Tasks({ onNav, taskDraft, onConsumeTaskDraft, emergency 
           {loadError}
         </div>
       )}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: isMobile ? 20 : 24, color: G.t1, margin: 0, letterSpacing: "-0.02em" }}>Tasks &amp; Incident Management</h1>
+        <p style={{ fontSize: 13, color: G.t2, margin: "4px 0 0 0" }}>Review, prioritize, and dispatch responders to community incident reports.</p>
+      </div>
+
       <div style={{ ...css.flex(0, 'center', 'space-between'), marginBottom: 20, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 12 : 0 }}>
         <div style={{ ...css.flex(8), flexWrap: 'wrap' }}>
           {['all', 'active', 'open', 'resolved'].map((f) => {

@@ -43,7 +43,7 @@ export default function CrisisPipeline({ onNav, intelligence }) {
         <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#FFFBEB,#FEF3C7)",border:"1px solid #FDE68A",borderRadius:100,padding:"5px 14px",fontSize:11.5,color:G.amber,fontWeight:700,marginBottom:14}}>
           <Zap size={13}/> Crisis Pipeline
         </div>
-        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Live Response Pipeline</h2>
+        <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Live Response Pipeline</h1>
         <p style={{fontSize:14,color:G.t2,marginTop:8,maxWidth:600}}>Track the flow of crisis events from initial AI detection through active deployment and final resolution.</p>
       </motion.div>
 

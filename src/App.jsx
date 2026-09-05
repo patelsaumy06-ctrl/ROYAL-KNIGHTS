@@ -29,11 +29,15 @@ import Auth from './pages/Auth';
 import CommunityNeeds from './pages/CommunityNeeds';
 import CrisisPipeline from './pages/CrisisPipeline';
 import EmergencyMode from './components/EmergencyMode';
+import { usePageSEO } from './hooks/usePageSEO';
 
 export default function App() {
   const [page, setPage] = useState('landing');
   const [navCtx, setNavCtx] = useState(null);
   const [ngo, setNgo] = useState(null);
+
+  // Dynamic SEO meta and title synchronization on route/state change
+  usePageSEO(!ngo ? 'auth' : page);
 
   const [showTour, setShowTour] = useState(false);
   const [emergency, setEmergency] = useState(false);

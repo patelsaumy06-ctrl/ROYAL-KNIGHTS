@@ -1,0 +1,19 @@
+{
+  "name": "NeedLink AI — Humanitarian Crisis Response Platform",
+  "short_name": "NeedLink AI",
+  "description": "AI-powered humanitarian response platform that aggregates field reports, predicts disaster risks, and auto-dispatches volunteers in real-time.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1120",
+  "theme_color": "#0F172A",
+  "orientation": "any",
+  "categories": ["humanitarian", "utilities", "productivity", "government"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

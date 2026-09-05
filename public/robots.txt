@@ -1,0 +1,14 @@
+# NeedLink AI Robots.txt
+# https://needlink-ai.web.app/
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /server/
+
+# Crawl-delay for rate-limiting aggressive bots
+Crawl-delay: 1
+
+# Host and Sitemap declaration
+Host: https://needlink-ai.web.app
+Sitemap: https://needlink-ai.web.app/sitemap.xml

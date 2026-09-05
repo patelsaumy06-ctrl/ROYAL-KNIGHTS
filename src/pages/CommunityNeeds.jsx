@@ -18,7 +18,7 @@ export default function CommunityNeeds({ onNav, intelligence }) {
         <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#EFF6FF,#EEF2FF)",border:"1px solid #DBEAFE",borderRadius:100,padding:"5px 14px",fontSize:11.5,color:G.blue,fontWeight:700,marginBottom:14}}>
           <HeartHandshake size={13}/> Community Needs
         </div>
-        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Active Community Requirements</h2>
+        <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Active Community Requirements</h1>
         <p style={{fontSize:14,color:G.t2,marginTop:8,maxWidth:600}}>Browse and manage the direct needs expressed by the community, prioritized by AI based on urgency, location, and impact potential.</p>
       </motion.div>
 

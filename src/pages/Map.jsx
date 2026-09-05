@@ -665,9 +665,9 @@ export default function MapView({ onNav, emergency, initialTask, riskScore = 0, 
             <Globe2 size={18} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: DK.t1, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              Needs Map
-            </div>
+            <h1 style={{ fontSize: 15, fontWeight: 800, color: DK.t1, letterSpacing: '-0.03em', lineHeight: 1.1, margin: 0 }}>
+              Live Crisis Hotspot Map
+            </h1>
             <div style={{ fontSize: 10.5, color: DK.t3, fontWeight: 500 }}>
               Live Geo Intelligence
             </div>

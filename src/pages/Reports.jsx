@@ -222,7 +222,10 @@ export default function Reports({ intelligence = null }) {
   return (
     <div style={{padding: isMobile ? '16px 12px' : 32}}>
       <div style={{...css.flex(0,"center","space-between"),marginBottom:24, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0}}>
-        <div style={{fontSize:13,color:G.t2}}>Reporting Overview · Gujarat Region</div>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: isMobile ? 20 : 24, color: G.t1, margin: 0, letterSpacing: "-0.02em" }}>Operational Impact &amp; Reports</h1>
+          <div style={{ fontSize: 13, color: G.t2, marginTop: 4 }}>Reporting Overview · Gujarat Region</div>
+        </div>
         <div style={{...css.flex(10)}}>
           <button style={css.btn("secondary",true)} onClick={handleDownloadPDF}>Download PDF</button>
           <button style={css.btn("primary",true)} onClick={handleExportCSV}>Export CSV</button>

@@ -47,7 +47,7 @@ export default function Insights({ onNav, onEmergencyActivated, intelligence = n
             <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#EFF6FF,#EEF2FF)",border:"1px solid #DBEAFE",borderRadius:100,padding:"5px 14px",fontSize:11.5,color:G.blue,fontWeight:700,marginBottom:14}}>
               <Sparkles size={13}/> AI-Generated Insights
             </div>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Community Need Analysis</h2>
+            <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:G.t1,letterSpacing:"-0.02em",margin:0}}>Community Need Analysis</h1>
           </div>
           <div style={{display:"flex",gap:10, flexWrap:"wrap"}}>
             {chips.map(c=>(

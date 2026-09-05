@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="nl-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="spark-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#2563EB" flood-opacity="0.45" />
+    </filter>
+  </defs>
+  <!-- Background Rounded Shield -->
+  <rect width="64" height="64" rx="16" fill="#0B1120" />
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+  
+  <!-- Interlocking Connection Nodes (Symbolizing Need & Response Link) -->
+  <g filter="url(#glow)">
+    <!-- Primary Link Ring -->
+    <rect x="14" y="24" width="22" height="16" rx="8" fill="none" stroke="url(#nl-grad)" stroke-width="4.5" />
+    <rect x="28" y="24" width="22" height="16" rx="8" fill="none" stroke="url(#spark-grad)" stroke-width="4.5" stroke-dasharray="32 12" />
+    
+    <!-- Real-time Pulse Center Dot -->
+    <circle cx="32" cy="32" r="3.5" fill="#38BDF8" />
+  </g>
+</svg>

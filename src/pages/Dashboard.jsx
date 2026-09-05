@@ -139,7 +139,7 @@ export default function Dashboard({onNav, emergency, setEmergency, onDeactivateE
             <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(37,99,235,0.2)",border:"1px solid rgba(37,99,235,0.3)",borderRadius:100,padding:"5px 14px",fontSize:11.5,color:"#60A5FA",fontWeight:700,marginBottom:16}}>
               <Sparkles size={13}/> AI-Powered Intelligence
             </div>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize: isMobile ? 22 : 28,color:"#fff",lineHeight:1.3,letterSpacing:"-0.02em",marginBottom:8}}>{greeting}! 👋</h2>
+            <h1 style={{fontFamily:"'Playfair Display',serif",fontSize: isMobile ? 22 : 28,color:"#fff",lineHeight:1.3,letterSpacing:"-0.02em",marginBottom:8}}>{greeting}! 👋</h1>
             <p style={{fontSize: isMobile ? 13 : 14,color:"rgba(255,255,255,0.5)",maxWidth:440}}>
               {urgent.length > 0
                 ? `${urgent.length} urgent need${urgent.length>1?"s":""} require${urgent.length===1?"s":""} attention. ${activeNeeds.length} active tasks across the region.`

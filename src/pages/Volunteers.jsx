@@ -289,7 +289,7 @@ export default function Volunteers({ initialTask, needsOverride = null, intellig
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#ECFDF5,#D1FAE5)", border: "1px solid #A7F3D0", borderRadius: 100, padding: "5px 14px", fontSize: 11.5, color: G.green, fontWeight: 700, marginBottom: 12 }}>
             <Sparkles size={13} /> AI-Powered Matching
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: isMobile ? 20 : 24, color: G.t1, margin: 0, letterSpacing: "-0.02em" }}>Volunteer Matching Engine</h2>
+          <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: isMobile ? 20 : 24, color: G.t1, margin: 0, letterSpacing: "-0.02em" }}>Volunteer Matching Engine</h1>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {["all", "available"].map(f => (
